@@ -1,0 +1,7 @@
+﻿transformers
+torch
+scikit-learn
+joblib
+streamlit
+emoji
+pyyaml

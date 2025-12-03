@@ -1,0 +1,12 @@
+﻿datasets
+transformers
+evaluate
+torch
+tensorflow
+scikit-learn
+pandas
+joblib
+streamlit
+emoji
+pyyaml
+tqdm
