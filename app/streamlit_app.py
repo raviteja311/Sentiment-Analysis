@@ -2,6 +2,14 @@
 import numpy as np
 import joblib
 from pathlib import Path
+import sys
+import os
+
+# Ensure we can import from parent directory
+current_dir = Path(__file__).parent
+parent_dir = current_dir.parent
+sys.path.insert(0, str(parent_dir))
+os.chdir(str(parent_dir))
 
 from src.utils.preprocessing import preprocess_tweet
 from src.models.bert_wrapper import BertWrapper
