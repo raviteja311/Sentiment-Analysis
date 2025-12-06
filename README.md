@@ -108,6 +108,3 @@ Main dependencies for inference:
 
 See LICENSE file for details.
 
-## Author
-
-raviteja311
