@@ -1,12 +1,4 @@
-"""
-Fine-tune a HuggingFace transformer for tweet sentiment.
 
-Saves model & tokenizer to: models/bert/
-
-Run:
-  $env:PYTHONPATH = "."
-  python src/training/train_bert.py
-"""
 import os
 from pathlib import Path
 import numpy as np
@@ -23,19 +15,17 @@ from transformers import (
 from sklearn.metrics import accuracy_score, f1_score
 from src.utils.preprocessing import preprocess_tweet
 
-# ---------------------------
-# Config (edit in-code)
-# ---------------------------
-MODEL_NAME = "cardiffnlp/twitter-roberta-base-sentiment"  # base model
+
+MODEL_NAME = "cardiffnlp/twitter-roberta-base-sentiment"  
 OUT_DIR = "models/bert"
 NUM_LABELS = 3
-BATCH_SIZE = 8          # increase if GPU available
+BATCH_SIZE = 8       
 EPOCHS = 3
 LR = 2e-5
 WEIGHT_DECAY = 0.01
 MAX_LEN = 128
 SEED = 42
-FP16 = False            # set True if GPU + AMP
+FP16 = False           
 # ---------------------------
 
 def set_seed(seed=42):
@@ -64,7 +54,7 @@ def main():
 
     print("Loading dataset (tweet_eval: sentiment)...")
     ds = load_dataset("cardiffnlp/tweet_eval", "sentiment")
-    # clean texts with our reusable preprocessing
+ 
     ds = ds.map(preprocess_examples, batched=True)
 
     print("Loading tokenizer & model:", MODEL_NAME)

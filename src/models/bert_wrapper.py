@@ -4,12 +4,7 @@ import numpy as np
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 class BertWrapper:
-    """
-    Lightweight wrapper to load a HF transformer in models/bert and predict probabilities.
-    Usage:
-        bert = BertWrapper("models/bert")
-        probs = bert.predict_proba(["text1","text2"])
-    """
+    
     def __init__(self, model_dir: str = "models/bert", device: str = None):
         self.model_dir = Path(model_dir)
         if not self.model_dir.exists():
@@ -31,9 +26,7 @@ class BertWrapper:
             yield texts[i:i+batch_size]
 
     def predict_proba(self, texts, max_length: int = 128, batch_size: int = 16):
-        """
-        Return numpy array shape (N, num_labels) with probabilities.
-        """
+       
         all_probs = []
         for batch in self._batchify(texts, batch_size):
             enc = self.tok(batch, return_tensors="pt", truncation=True, padding=True, max_length=max_length)
