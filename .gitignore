@@ -205,3 +205,33 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+
+# ---------------------------------------------------------------------------
+# Added during the production-readiness upgrade
+# ---------------------------------------------------------------------------
+
+# Intermediate training checkpoints. The original repo committed two of these
+# at 498 MB each, roughly 1 GB of pure duplication of the final weights.
+models/**/checkpoint-*/
+models/**/runs/
+models/**/tb_logs/
+
+# TensorBoard logs and scratch evaluation output
+reports/tb_logs/
+*.tfevents.*
+
+# Generated metrics are kept in git on purpose (they are small and are the
+# evidence behind the README table), but scratch comparisons are not:
+reports/metrics/scratch_*.json
+
+# Tooling caches
+.ruff_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Environment
+.env
+.venv/
