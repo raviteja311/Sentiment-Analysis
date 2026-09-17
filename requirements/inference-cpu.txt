@@ -1,0 +1,19 @@
+# CPU-only inference stack: the Streamlit UI plus all four model backends.
+# Replaces the former requirements/inference.txt.
+
+-r base.txt
+
+# Keras 3.12.0 is the version that wrote models/lstm/*.keras and
+# models/gru/*.keras (see the "keras_version" field inside those archives).
+tensorflow-cpu==2.21.0
+keras==3.12.0
+
+# The default PyPI torch wheel bundles CUDA. For a CPU-sized install use:
+#   pip install -r requirements/inference-cpu.txt \
+#       --extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.9.1
+
+# Matches "transformers_version" recorded in models/bert/config.json.
+transformers==4.57.3
+
+streamlit==1.64.0

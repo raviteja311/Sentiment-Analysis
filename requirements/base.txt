@@ -1,0 +1,17 @@
+# Dependencies shared by every entry point: training, serving and the UI.
+#
+# Versions are pinned rather than left open so that a fresh install cannot
+# silently pick up a release that removes something the code relies on. That is
+# not hypothetical here: scikit-learn 1.7 removed LogisticRegression's
+# `multi_class` argument and, with an unpinned requirements file, every new
+# install of this project got a scikit-learn where train_lr.py raised TypeError.
+
+numpy==2.3.5
+
+# Pinned to the version that pickled models/lr/pipeline.joblib. Unpickling an
+# estimator under a different minor version raises InconsistentVersionWarning
+# and is not guaranteed to reproduce the same predictions.
+scikit-learn==1.7.2
+joblib==1.5.2
+
+emoji==2.16.0

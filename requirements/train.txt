@@ -1,12 +1,13 @@
-﻿datasets
-transformers
-evaluate
-torch
-tensorflow
-scikit-learn
-pandas
-joblib
-streamlit
-emoji
-pyyaml
-tqdm
+# Training stack: everything needed for inference, plus the dataset pipeline.
+#
+# Dropped from the previous version of this file: evaluate, tqdm and pyyaml.
+# None of them were imported anywhere in the project.
+
+-r inference-cpu.txt
+
+datasets==4.4.1
+
+# transformers.Trainer requires accelerate when training on torch.
+accelerate==1.11.0
+
+pandas==2.3.3

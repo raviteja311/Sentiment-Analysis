@@ -1,8 +1,0 @@
-﻿transformers
-torch
-tensorflow
-scikit-learn
-joblib
-streamlit
-emoji
-pyyaml
