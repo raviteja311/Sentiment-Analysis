@@ -1,17 +1,35 @@
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Embedding, Bidirectional, LSTM, Dense, Dropout
+import keras
+from keras.layers import Bidirectional, Dense, Dropout, Embedding, Input, LSTM
+from keras.models import Sequential
 
-def build_lstm(vocab_size, max_len, embed_dim=100):
-  
+from src.config import NUM_LABELS, SEQUENCE_CONFIG
+
+
+def build_lstm(
+    vocab_size,
+    max_len=SEQUENCE_CONFIG.max_len,
+    embed_dim=SEQUENCE_CONFIG.embed_dim,
+) -> keras.Model:
+    """Bi-LSTM classifier over a learned embedding.
+
+    The input shape is declared with an explicit Input layer. It used to be
+    passed as Embedding(input_length=max_len), which Keras 3 deprecated - it
+    warned on every call and was ignored when building the graph.
+    """
     model = Sequential([
-        Embedding(input_dim=vocab_size, output_dim=embed_dim, input_length=max_len),
+        Input(shape=(max_len,), dtype="int32"),
+        Embedding(input_dim=vocab_size, output_dim=embed_dim),
         Bidirectional(LSTM(128, return_sequences=True)),
         Dropout(0.35),
         Bidirectional(LSTM(64)),
         Dropout(0.25),
         Dense(128, activation="relu"),
         Dropout(0.2),
-        Dense(3, activation="softmax")
+        Dense(NUM_LABELS, activation="softmax"),
     ])
-    model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
+    model.compile(
+        optimizer="adam",
+        loss="categorical_crossentropy",
+        metrics=["accuracy"],
+    )
     return model
