@@ -1,4 +1,4 @@
-﻿from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Embedding, Bidirectional, LSTM, Dense, Dropout
 
 def build_lstm(vocab_size, max_len, embed_dim=100):

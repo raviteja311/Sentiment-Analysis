@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 import torch
 import numpy as np
 from transformers import AutoTokenizer, AutoModelForSequenceClassification

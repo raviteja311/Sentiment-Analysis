@@ -1,4 +1,4 @@
-﻿import numpy as np
+import numpy as np
 from pathlib import Path
 import joblib
 from datasets import load_dataset

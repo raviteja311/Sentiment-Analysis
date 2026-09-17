@@ -1,4 +1,4 @@
-﻿import numpy as np
+import numpy as np
 from sklearn.metrics import accuracy_score, f1_score, confusion_matrix, classification_report
 
 def compute_metrics(y_true, y_pred):
