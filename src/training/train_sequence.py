@@ -13,8 +13,8 @@ documentation could be checked against anything.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import asdict
-from typing import Callable
 
 import numpy as np
 
@@ -51,9 +51,7 @@ def _tokenizer_class():
 
 def fit_tokenizer(texts, config: SequenceConfig = SEQUENCE_CONFIG):
     """Fit a word tokenizer on the training texts."""
-    tokenizer = _tokenizer_class()(
-        num_words=config.max_vocab, oov_token=config.oov_token
-    )
+    tokenizer = _tokenizer_class()(num_words=config.max_vocab, oov_token=config.oov_token)
     tokenizer.fit_on_texts(texts)
     return tokenizer
 
@@ -91,8 +89,7 @@ def train_sequence_model(
 
     dataset = load_raw_dataset()
     splits = {
-        name: prepare_split(dataset, name)
-        for name in ("train", "validation", "test")
+        name: prepare_split(dataset, name) for name in ("train", "validation", "test")
     }
     train_texts, train_labels = splits["train"]
 
@@ -108,7 +105,10 @@ def train_sequence_model(
     vocab_size = min(config.max_vocab, len(tokenizer.word_index) + 1)
     LOGGER.info(
         "Building %s (vocab=%d, embed=%d, max_len=%d)",
-        key, vocab_size, config.embed_dim, config.max_len,
+        key,
+        vocab_size,
+        config.embed_dim,
+        config.max_len,
     )
     model = build_fn(
         vocab_size,
@@ -158,7 +158,9 @@ def train_sequence_model(
         metrics[name] = compute_metrics(splits[name][1], predictions)
         LOGGER.info(
             "%s: accuracy=%.4f macro F1=%.4f",
-            name, metrics[name]["accuracy"], metrics[name]["f1_macro"],
+            name,
+            metrics[name]["accuracy"],
+            metrics[name]["f1_macro"],
         )
 
     report = build_report(

@@ -22,9 +22,9 @@ models exist.
 from __future__ import annotations
 
 import functools
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
 
 import numpy as np
 
@@ -33,6 +33,7 @@ from src.config import (
     BERT_DIR,
     LABELS,
     LR_DIR,
+    MODEL_DIRS,
     MODEL_DISPLAY_NAMES,
     MODEL_KEYS,
     NUM_LABELS,
@@ -40,7 +41,6 @@ from src.config import (
     REQUIRED_ARTIFACTS,
     RETRAIN_COMMANDS,
     SEQUENCE_CONFIG,
-    MODEL_DIRS,
 )
 from src.utils.preprocessing import preprocess_tweet
 
@@ -174,9 +174,7 @@ class Predictor:
             model=self.key,
             label=LABELS[index],
             confidence=float(probs[index]),
-            probabilities={
-                label: float(probs[i]) for i, label in enumerate(LABELS)
-            },
+            probabilities={label: float(probs[i]) for i, label in enumerate(LABELS)},
         )
 
     def _predict_proba(self, cleaned: list[str]) -> np.ndarray:
@@ -265,7 +263,7 @@ _PREDICTORS = {
 }
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def load_predictor(model: str) -> Predictor:
     """Load a predictor, reusing the instance on subsequent calls.
 
@@ -305,6 +303,4 @@ def _pad_sequences(sequences, max_len: int) -> np.ndarray:
     except ImportError:  # pragma: no cover - Keras 2 layout
         from tensorflow.keras.preprocessing.sequence import pad_sequences
 
-    return pad_sequences(
-        sequences, maxlen=max_len, padding="post", truncating="post"
-    )
+    return pad_sequences(sequences, maxlen=max_len, padding="post", truncating="post")

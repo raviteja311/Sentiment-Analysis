@@ -77,9 +77,7 @@ def evaluate_model(
 
     LOGGER.info("Evaluating %s on %s (%d examples)...", model, split, len(labels))
     metrics = evaluate_predictions(model, texts, labels, batch_size=batch_size)
-    LOGGER.info(
-        "  accuracy=%.4f macro F1=%.4f", metrics["accuracy"], metrics["f1_macro"]
-    )
+    LOGGER.info("  accuracy=%.4f macro F1=%.4f", metrics["accuracy"], metrics["f1_macro"])
 
     report = build_report(
         model=model,
@@ -163,13 +161,16 @@ def markdown_table(reports: list[dict]) -> str:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
-        "--models", nargs="+", choices=MODEL_KEYS,
+        "--models",
+        nargs="+",
+        choices=MODEL_KEYS,
         help="models to evaluate (default: every available model)",
     )
     parser.add_argument("--split", default=DEFAULT_SPLIT)
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
     parser.add_argument(
-        "--table-only", action="store_true",
+        "--table-only",
+        action="store_true",
         help="print the table from existing reports without evaluating",
     )
     args = parser.parse_args(argv)

@@ -129,9 +129,7 @@ def main(config=BERT_CONFIG):
         data_collator=DataCollatorWithPadding(tokenizer=tokenizer),
         compute_metrics=trainer_metrics,
         callbacks=[
-            EarlyStoppingCallback(
-                early_stopping_patience=config.early_stopping_patience
-            )
+            EarlyStoppingCallback(early_stopping_patience=config.early_stopping_patience)
         ],
     )
 
@@ -145,7 +143,9 @@ def main(config=BERT_CONFIG):
         metrics[split] = compute_metrics(output.label_ids, preds)
         LOGGER.info(
             "%s: accuracy=%.4f macro F1=%.4f",
-            split, metrics[split]["accuracy"], metrics[split]["f1_macro"],
+            split,
+            metrics[split]["accuracy"],
+            metrics[split]["f1_macro"],
         )
 
     LOGGER.info("Saving model and tokenizer to %s", BERT_DIR)

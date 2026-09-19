@@ -1,8 +1,9 @@
 import re
-from typing import Optional
+
 import emoji
 
-def preprocess_tweet(text: Optional[str]) -> str:
+
+def preprocess_tweet(text: str | None) -> str:
     if not isinstance(text, str):
         return ""
     text = text.strip().lower()
