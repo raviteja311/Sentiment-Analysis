@@ -1,171 +1,108 @@
-import streamlit as st
-import numpy as np
-import joblib
-from pathlib import Path
+"""Streamlit UI for the sentiment models.
+
+Run it from the project root::
+
+    streamlit run app/streamlit_app.py
+
+Everything model-related is delegated to src.inference.predictor, so the UI, the
+API and the tests share one preprocessing path and one definition of what a
+probability vector means.
+
+Models whose artifacts are missing or are Git LFS pointer stubs are kept out of
+the selector entirely, with the reason shown in the sidebar. Offering a model
+that is certain to raise on click is worse than not offering it.
+"""
+
 import sys
-import os
+from pathlib import Path
 
-# Ensure we can import from parent directory
-current_dir = Path(__file__).parent
-parent_dir = current_dir.parent
-sys.path.insert(0, str(parent_dir))
-os.chdir(str(parent_dir))
+# Make `streamlit run app/streamlit_app.py` work from the project root without
+# installing the package. The previous version also called os.chdir() here,
+# mutating process-global state as an import side effect.
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.utils.preprocessing import preprocess_tweet
-from src.models.bert_wrapper import BertWrapper
+import streamlit as st
 
-
-# -------------------------------------------------
-# Streamlit Layout
-# -------------------------------------------------
-st.set_page_config(page_title="Sentiment Analysis", layout="centered")
-st.title("Sentiment Analysis — LR, LSTM, GRU, BERT")
-
-MODEL_CHOICES = ["LogisticRegression", "LSTM", "GRU", "BERT"]
-model_choice = st.sidebar.selectbox("Select Model", MODEL_CHOICES)
+from src.config import LABELS
+from src.inference.predictor import (
+    ModelUnavailableError,
+    load_predictor,
+    model_status,
+)
 
 
-# -------------------------------------------------
-# Cached Loaders
-# -------------------------------------------------
-
-@st.cache_resource
-def load_lr(path="models/lr/pipeline.joblib"):
-    """Load Logistic Regression joblib pipeline."""
-    return joblib.load(path)
+@st.cache_resource(show_spinner="Loading model...")
+def get_predictor(model_key: str):
+    """Load a predictor once per session."""
+    return load_predictor(model_key)
 
 
-@st.cache_resource
-def load_lstm(path="models/lstm"):
-    """Load tokenizer + LSTM Keras model."""
-    from tensorflow.keras.models import load_model as _load_model
+def render_sidebar(status: dict) -> str | None:
+    """Model selector plus an explanation for anything unavailable."""
+    usable = {key: info for key, info in status.items() if info["available"]}
+    unusable = {key: info for key, info in status.items() if not info["available"]}
 
-    tok_path = Path(path) / "tokenizer.joblib"
-    model_path = Path(path) / "model_final.keras"
+    choice = None
+    if usable:
+        choice = st.sidebar.selectbox(
+            "Model",
+            list(usable),
+            format_func=lambda key: usable[key]["display_name"],
+        )
 
-    if not tok_path.exists():
-        raise FileNotFoundError("LSTM tokenizer.joblib missing in models/lstm/")
-    if not model_path.exists():
-        raise FileNotFoundError("LSTM model_final.keras missing in models/lstm/")
+    if unusable:
+        with st.sidebar.expander(f"{len(unusable)} model(s) unavailable"):
+            for info in unusable.values():
+                st.write(f"**{info['display_name']}** - {info['reason']}")
 
-    tok = joblib.load(tok_path)
-    mdl = _load_model(str(model_path))
-    return tok, mdl
-
-
-@st.cache_resource
-def load_gru(path="models/gru"):
-    """Load tokenizer + GRU Keras model."""
-    from tensorflow.keras.models import load_model as _load_model
-
-    tok_path = Path(path) / "tokenizer.joblib"
-    model_path = Path(path) / "model_final.keras"
-
-    if not tok_path.exists():
-        raise FileNotFoundError("GRU tokenizer.joblib missing in models/gru/")
-    if not model_path.exists():
-        raise FileNotFoundError("GRU model_final.keras missing in models/gru/")
-
-    tok = joblib.load(tok_path)
-    mdl = _load_model(str(model_path))
-    return tok, mdl
+    return choice
 
 
-@st.cache_resource
-def load_bert(path="models/bert"):
-    """Load BERT model wrapper."""
-    return BertWrapper(path)
+def main() -> None:
+    st.set_page_config(page_title="Sentiment Analysis", layout="centered")
+    st.title("Sentiment Analysis")
+    st.caption("Three-class tweet sentiment: negative, neutral or positive.")
 
+    status = model_status()
+    choice = render_sidebar(status)
 
-# -------------------------------------------------
-# Helper Functions
-# -------------------------------------------------
+    if choice is None:
+        st.error(
+            "No model artifacts are usable. Run `git lfs install && git lfs pull` "
+            "to download the weights, or train one with "
+            "`python -m src.training.train_lr`."
+        )
+        return
 
-def lstm_predict(tokenizer, model, text, max_len=80):
-    """Prepare LSTM input and return softmax probabilities."""
-    from tensorflow.keras.preprocessing.sequence import pad_sequences
-    seq = tokenizer.texts_to_sequences([text])
-    seq = pad_sequences(seq, maxlen=max_len, padding="post", truncating="post")
-    return model.predict(seq)[0]
+    text = st.text_area("Enter text to analyze:", height=140)
 
+    if not st.button("Predict", type="primary"):
+        return
 
-def gru_predict(tokenizer, model, text, max_len=80):
-    """Prepare GRU input and return softmax probabilities."""
-    from tensorflow.keras.preprocessing.sequence import pad_sequences
-    seq = tokenizer.texts_to_sequences([text])
-    seq = pad_sequences(seq, maxlen=max_len, padding="post", truncating="post")
-    return model.predict(seq)[0]
-
-
-# -------------------------------------------------
-# Main UI
-# -------------------------------------------------
-
-st.write(f"Using Model: **{model_choice}**")
-text = st.text_area("Enter text to analyze:", height=140)
-
-if st.button("Predict"):
     if not text.strip():
         st.warning("Please enter some text.")
-        st.stop()
+        return
 
-    cleaned_text = preprocess_tweet(text)
-    labels = ["negative", "neutral", "positive"]
+    try:
+        predictor = get_predictor(choice)
+    except ModelUnavailableError as error:
+        st.error(str(error))
+        return
 
-    # -------------------------------
-    # Logistic Regression
-    # -------------------------------
-    if model_choice == "LogisticRegression":
-        try:
-            model = load_lr()
-        except Exception as e:
-            st.error(f"LR model error: {e}")
-            st.stop()
+    prediction = predictor.predict(text)
 
-        probs = model.predict_proba([cleaned_text])[0]
+    st.subheader(f"Prediction: {prediction.label.upper()}")
+    st.metric("Confidence", f"{prediction.confidence:.1%}")
+    st.dataframe(
+        {
+            "Class": list(LABELS),
+            "Probability": [prediction.probabilities[label] for label in LABELS],
+        },
+        width="stretch",
+        hide_index=True,
+    )
 
-    # -------------------------------
-    # LSTM
-    # -------------------------------
-    elif model_choice == "LSTM":
-        try:
-            tokenizer, model = load_lstm()
-            probs = lstm_predict(tokenizer, model, cleaned_text, max_len=80)
-        except Exception as e:
-            st.error(f"LSTM error: {e}")
-            st.stop()
 
-    # -------------------------------
-    # GRU
-    # -------------------------------
-    elif model_choice == "GRU":
-        try:
-            tokenizer, model = load_gru()
-            probs = gru_predict(tokenizer, model, cleaned_text, max_len=80)
-        except Exception as e:
-            st.error(f"GRU error: {e}")
-            st.stop()
-
-    # -------------------------------
-    # BERT
-    # -------------------------------
-    else:
-        try:
-            bert = load_bert()
-            probs = bert.predict_proba([cleaned_text])[0]
-        except Exception as e:
-            st.error(f"BERT error: {e}")
-            st.stop()
-
-    # -------------------------------
-    # Output
-    # -------------------------------
-    pred_idx = int(np.argmax(probs))
-
-    st.subheader(f"Prediction: **{labels[pred_idx].upper()}**")
-    st.write(f"Confidence: `{float(probs[pred_idx]):.3f}`")
-
-    st.table({
-        "Class": labels,
-        "Probability": [float(p) for p in probs]
-    })
+main()
