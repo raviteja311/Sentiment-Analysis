@@ -21,3 +21,6 @@ streamlit==1.64.0
 # Serving layer.
 fastapi==0.141.1
 uvicorn==0.53.0
+
+# Per-process rate limiting. A backstop only - see api/rate_limit.py.
+slowapi==0.1.10

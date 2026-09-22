@@ -6,10 +6,16 @@ rather than failing. A clone without `git lfs pull` should still be able to run
 the suite and learn something from it.
 """
 
+import os
 import sys
 from pathlib import Path
 
 import pytest
+
+# Rate limiting is off for the suite: the limiter keys on client IP, every
+# TestClient request shares one, and a few dozen API tests would otherwise
+# start throttling each other. tests/test_rate_limit.py enables it explicitly.
+os.environ.setdefault("RATE_LIMIT", "off")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:

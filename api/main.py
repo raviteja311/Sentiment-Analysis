@@ -22,8 +22,11 @@ import logging
 
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from api.observability import configure_logging, request_id_middleware
+from api.rate_limit import build_limiter, rate_limit_exceeded_handler
 from src.config import MODEL_KEYS
 from src.inference.predictor import (
     ModelUnavailableError,
@@ -50,6 +53,13 @@ app = FastAPI(
 # Correlates every log line for a request and echoes X-Request-ID back, so a
 # caller can quote an id when reporting a problem.
 app.middleware("http")(request_id_middleware)
+
+# Per-IP rate limiting. A backstop for a single process, not a substitute for
+# limiting at the edge - see api/rate_limit.py.
+limiter = build_limiter()
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 
 class PredictRequest(BaseModel):
@@ -110,12 +120,14 @@ def _load_or_503(model: str):
 
 
 @app.get("/health")
+@limiter.exempt
 def health() -> dict:
     """Liveness: the process is up. Says nothing about the models."""
     return {"status": "ok", "models_available": available_models()}
 
 
 @app.get("/ready")
+@limiter.exempt
 def ready() -> dict:
     """Readiness: at least one model can actually be served."""
     models = available_models()
@@ -131,6 +143,7 @@ def ready() -> dict:
 
 
 @app.get("/models")
+@limiter.exempt
 def models() -> dict:
     """Every known model and why it is or is not available."""
     return {"models": model_status()}

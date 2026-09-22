@@ -143,6 +143,29 @@ produced it:
 **The text being classified is never logged** - only its length. Set
 `LOG_FORMAT=plain` for readable local output and `LOG_LEVEL` to change verbosity.
 
+### Rate limiting
+
+The prediction endpoints are limited to `60/minute` per caller IP by default,
+answering **429** with a `Retry-After` header and reporting the remaining budget
+in `X-RateLimit-*`. Health, readiness and `/models` are exempt - throttling a
+liveness probe gets a healthy container restarted.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `RATE_LIMIT` | `60/minute` | limit, or `off` to disable |
+| `RATE_LIMIT_STORAGE_URI` | `memory://` | set to `redis://...` to share counters across workers |
+| `TRUST_PROXY_HEADERS` | unset | use `X-Forwarded-For` for the caller's identity |
+
+Two limits of this, worth knowing before relying on it. With the in-memory
+store each worker counts separately, so N workers give a caller N times the
+limit; use Redis to share state. And `TRUST_PROXY_HEADERS` should only be set
+when a proxy you control overwrites that header - otherwise a caller sets it
+themselves and bypasses the limit.
+
+**This is a backstop, not the real defence.** Rate limiting belongs at the edge,
+in an ingress or API gateway, where it applies before a request reaches any
+application process.
+
 Confidence is **calibrated**, not a raw softmax - see [Calibration](#calibration).
 
 ### Streamlit app
@@ -217,7 +240,7 @@ what keeps it inside 4 GB of VRAM.
 ## Tests and quality
 
 ```bash
-make test         # 208 tests
+make test         # 231 tests
 make lint         # ruff + black
 ```
 
