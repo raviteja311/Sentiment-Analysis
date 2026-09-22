@@ -1,0 +1,30 @@
+{
+  "model": "bert",
+  "note": "Training history from the 2026-09-22 retrain, preserved before deleting the 1.4 GB checkpoint it came from.",
+  "best_metric": 0.7814933629741464,
+  "best_model_checkpoint": "C:\\Users\\jetti\\CARRER\\Main Projects\\Sentiment-Analysis\\models\\bert\\checkpoint-11404",
+  "epoch": 2.0,
+  "global_step": 11404,
+  "evaluations": [
+    {
+      "epoch": 1.0,
+      "eval_accuracy": 0.7835,
+      "eval_f1_macro": 0.7732140165929776,
+      "eval_loss": 0.5111145377159119,
+      "eval_runtime": 55.426,
+      "eval_samples_per_second": 36.084,
+      "eval_steps_per_second": 4.511,
+      "step": 5702
+    },
+    {
+      "epoch": 2.0,
+      "eval_accuracy": 0.7925,
+      "eval_f1_macro": 0.7814933629741464,
+      "eval_loss": 0.650202751159668,
+      "eval_runtime": 55.2391,
+      "eval_samples_per_second": 36.206,
+      "eval_steps_per_second": 4.526,
+      "step": 11404
+    }
+  ]
+}
