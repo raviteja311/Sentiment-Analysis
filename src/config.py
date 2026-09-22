@@ -28,7 +28,7 @@ METRICS_DIR = REPORTS_DIR / "metrics"
 LR_DIR = MODELS_DIR / "lr"
 LSTM_DIR = MODELS_DIR / "lstm"
 GRU_DIR = MODELS_DIR / "gru"
-BERT_DIR = MODELS_DIR / "bert"
+ROBERTA_DIR = MODELS_DIR / "roberta"
 
 # ---------------------------------------------------------------------------
 # Labels
@@ -57,15 +57,25 @@ SEED = 42
 # Models
 # ---------------------------------------------------------------------------
 
-MODEL_KEYS: tuple[str, ...] = ("lr", "lstm", "gru", "bert")
+MODEL_KEYS: tuple[str, ...] = ("lr", "lstm", "gru", "roberta")
+
+# The transformer was called "bert" until its directory and key were corrected:
+# the checkpoint is RoBERTa (models/roberta/config.json reports model_type
+# "roberta"). The old key still resolves, so saved requests and scripts do not
+# break on a naming fix.
+MODEL_ALIASES: dict[str, str] = {"bert": "roberta"}
+
+
+def resolve_model(name: str) -> str:
+    """Canonical key for a model name, following deprecated aliases."""
+    return MODEL_ALIASES.get(name, name)
+
 
 MODEL_DISPLAY_NAMES: dict[str, str] = {
     "lr": "Logistic Regression",
     "lstm": "Bi-LSTM",
     "gru": "Bi-GRU",
-    # The checkpoint is RoBERTa (models/bert/config.json reports model_type
-    # "roberta"); the directory is called "bert" for historical reasons.
-    "bert": "Twitter-RoBERTa",
+    "roberta": "Twitter-RoBERTa",
 }
 
 # Files that must exist, and must not be Git LFS pointer stubs, before a model
@@ -74,10 +84,10 @@ REQUIRED_ARTIFACTS: dict[str, tuple[Path, ...]] = {
     "lr": (LR_DIR / "pipeline.joblib",),
     "lstm": (LSTM_DIR / "model_final.keras", LSTM_DIR / "tokenizer.joblib"),
     "gru": (GRU_DIR / "model_final.keras", GRU_DIR / "tokenizer.joblib"),
-    "bert": (
-        BERT_DIR / "model.safetensors",
-        BERT_DIR / "config.json",
-        BERT_DIR / "tokenizer.json",
+    "roberta": (
+        ROBERTA_DIR / "model.safetensors",
+        ROBERTA_DIR / "config.json",
+        ROBERTA_DIR / "tokenizer.json",
     ),
 }
 
@@ -85,7 +95,7 @@ MODEL_DIRS: dict[str, Path] = {
     "lr": LR_DIR,
     "lstm": LSTM_DIR,
     "gru": GRU_DIR,
-    "bert": BERT_DIR,
+    "roberta": ROBERTA_DIR,
 }
 
 # ---------------------------------------------------------------------------
@@ -109,7 +119,7 @@ REMOTE_ARTIFACTS: dict[str, tuple[str, ...]] = {
     "lr": (),
     "lstm": ("lstm/model_final.keras", "lstm/best.keras"),
     "gru": ("gru/model_final.keras", "gru/best.keras"),
-    "bert": ("bert/model.safetensors", "bert/training_args.bin"),
+    "roberta": ("roberta/model.safetensors", "roberta/training_args.bin"),
 }
 
 # Shown in the error message when an artifact is missing or is an LFS stub.
@@ -117,7 +127,7 @@ RETRAIN_COMMANDS: dict[str, str] = {
     "lr": "python -m src.training.train_lr",
     "lstm": "python -m src.training.train_lstm",
     "gru": "python -m src.training.train_gru",
-    "bert": "python -m src.training.train_bert",
+    "roberta": "python -m src.training.train_roberta",
 }
 
 
@@ -166,7 +176,7 @@ class SequenceConfig:
 
 
 @dataclass(frozen=True)
-class BertConfig:
+class RobertaConfig:
     """Fine-tuning settings for the Twitter-RoBERTa checkpoint."""
 
     base_model: str = "cardiffnlp/twitter-roberta-base-sentiment"
@@ -183,4 +193,4 @@ class BertConfig:
 
 LR_CONFIG = LRConfig()
 SEQUENCE_CONFIG = SequenceConfig()
-BERT_CONFIG = BertConfig()
+ROBERTA_CONFIG = RobertaConfig()

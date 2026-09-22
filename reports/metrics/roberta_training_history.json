@@ -1,5 +1,5 @@
 {
-  "model": "bert",
+  "model": "roberta",
   "note": "Training history from the 2026-09-22 retrain, preserved before deleting the 1.4 GB checkpoint it came from.",
   "best_metric": 0.7814933629741464,
   "best_model_checkpoint": "C:\\Users\\jetti\\CARRER\\Main Projects\\Sentiment-Analysis\\models\\bert\\checkpoint-11404",

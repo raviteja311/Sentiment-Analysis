@@ -38,10 +38,12 @@ to what produced it.
 | `lr` | TF-IDF + Logistic Regression | scikit-learn | `models/lr/pipeline.joblib` |
 | `lstm` | Bi-LSTM over a learned embedding | Keras 3 | `models/lstm/model_final.keras` |
 | `gru` | Bi-GRU over a learned embedding | Keras 3 | `models/gru/model_final.keras` |
-| `bert` | Fine-tuned `cardiffnlp/twitter-roberta-base-sentiment` | Transformers | `models/bert/` |
+| `roberta` | Fine-tuned `cardiffnlp/twitter-roberta-base-sentiment` | Transformers | `models/roberta/` |
 
-The transformer directory is named `bert` for historical reasons; the model is
-**RoBERTa** (`model_type: roberta`, byte-pair tokenizer), not BERT.
+The transformer was keyed as `bert` until the name was corrected to match the
+checkpoint - it is **RoBERTa** (`model_type: roberta`, byte-pair tokenizer).
+`"model": "bert"` is still accepted as a deprecated alias and resolves to
+`roberta`, so existing requests keep working.
 
 ## Dataset
 
@@ -106,12 +108,12 @@ make api          # or: uvicorn api.main:app --host 0.0.0.0 --port 8000
 ```bash
 curl -X POST localhost:8000/predict \
   -H 'Content-Type: application/json' \
-  -d '{"text":"this is fantastic","model":"bert"}'
+  -d '{"text":"this is fantastic","model":"roberta"}'
 ```
 
 ```json
 {
-  "model": "bert",
+  "model": "roberta",
   "version": "a378eddd7113",
   "label": "positive",
   "confidence": 0.9474,
@@ -187,7 +189,7 @@ stays under a gigabyte. Bake the rest in at build time, or mount them at run
 time as docker-compose does:
 
 ```bash
-docker build --target cpu --build-arg FETCH_MODELS="lstm gru bert" .
+docker build --target cpu --build-arg FETCH_MODELS="lstm gru roberta" .
 ```
 
 ## Calibration
@@ -200,7 +202,7 @@ and the evaluation all report the same calibrated numbers.
 
 | Model | Temperature | ECE before | ECE after | Mean confidence before | after | Accuracy |
 |---|---|---|---|---|---|---|
-| bert | 2.00 | 0.2092 | 0.0925 | 0.917 | 0.800 | 0.7077 |
+| roberta | 2.00 | 0.2092 | 0.0925 | 0.917 | 0.800 | 0.7077 |
 | gru | 1.08 | 0.0381 | 0.0219 | 0.656 | 0.638 | 0.6175 |
 | lstm | 1.08 | 0.0302 | 0.0126 | 0.647 | 0.629 | 0.6168 |
 | lr | 1.00 (not adopted) | 0.0428 | 0.0428 | 0.611 | 0.611 | 0.5827 |
@@ -222,7 +224,7 @@ pip install -r requirements/train.txt
 make train-lr        # ~5 min, CPU
 make train-lstm      # ~6 min, CPU
 make train-gru       # ~6 min, CPU
-make train-bert      # ~2h15m on a GTX 1650 with mixed precision
+make train-roberta   # ~2h15m on a GTX 1650 with mixed precision
 make evaluate        # scores every available model, regenerates the table above
 make calibrate       # refits temperature scaling after retraining
 ```
@@ -240,7 +242,7 @@ what keeps it inside 4 GB of VRAM.
 ## Tests and quality
 
 ```bash
-make test         # 231 tests
+make test         # 240 tests
 make lint         # ruff + black
 ```
 

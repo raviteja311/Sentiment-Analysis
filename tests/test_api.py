@@ -133,3 +133,35 @@ def test_unloadable_model_also_degrades_on_the_batch_endpoint(api_client, monkey
     )
     response = api_client.post("/predict/batch", json={"texts": ["hi"], "model": "gru"})
     assert response.status_code == 503
+
+
+# --- deprecated aliases ----------------------------------------------------
+
+
+@requires_model("roberta")
+def test_the_old_model_key_still_works(api_client):
+    response = api_client.post("/predict", json={"text": "great", "model": "bert"})
+    assert response.status_code == 200
+    # The response reports the canonical name, so callers migrate naturally.
+    assert response.json()["model"] == "roberta"
+
+
+@requires_model("roberta")
+def test_the_alias_and_the_canonical_key_agree(api_client):
+    old = api_client.post("/predict", json={"text": "great", "model": "bert"}).json()
+    new = api_client.post("/predict", json={"text": "great", "model": "roberta"}).json()
+    assert old == new
+
+
+def test_unknown_models_are_still_rejected(api_client):
+    response = api_client.post("/predict", json={"text": "hi", "model": "gpt"})
+    assert response.status_code == 422
+
+
+@requires_model("roberta")
+def test_the_alias_works_on_the_batch_endpoint(api_client):
+    response = api_client.post(
+        "/predict/batch", json={"texts": ["great", "awful"], "model": "bert"}
+    )
+    assert response.status_code == 200
+    assert all(p["model"] == "roberta" for p in response.json()["predictions"])

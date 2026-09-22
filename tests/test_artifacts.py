@@ -92,9 +92,9 @@ def test_fetch_force_redownloads(monkeypatch, tmp_path):
 
     monkeypatch.setattr("huggingface_hub.hf_hub_download", fake_download, raising=False)
 
-    artifacts.fetch(["bert"])
-    artifacts.fetch(["bert"], force=True)
-    assert requested == list(REMOTE_ARTIFACTS["bert"]) * 2
+    artifacts.fetch(["roberta"])
+    artifacts.fetch(["roberta"], force=True)
+    assert requested == list(REMOTE_ARTIFACTS["roberta"]) * 2
 
 
 def test_error_for_a_remote_artifact_points_at_the_fetch_command(monkeypatch, tmp_path):

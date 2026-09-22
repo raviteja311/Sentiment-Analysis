@@ -42,7 +42,7 @@ import sys
 
 import numpy as np
 
-from src.config import MODEL_DIRS, MODEL_KEYS, NUM_LABELS, SEED
+from src.config import MODEL_DIRS, MODEL_KEYS, NUM_LABELS, SEED, resolve_model
 from src.utils.io import load_json, save_json
 
 LOGGER = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ EPSILON = 1e-12
 
 def calibration_path(model: str):
     """Where a model's fitted temperature is stored."""
-    return MODEL_DIRS[model] / "calibration.json"
+    return MODEL_DIRS[resolve_model(model)] / "calibration.json"
 
 
 def load_temperature(model: str) -> float | None:

@@ -6,7 +6,7 @@ path and a label scheme, and differ only in architecture.
 
 **Labels:** `0 = negative`, `1 = neutral`, `2 = positive`. That ordering is fixed
 by the dataset and by every artifact here; it is recorded in `src/config.py` and
-in `models/bert/config.json`.
+in `models/roberta/config.json`.
 
 ## Models
 
@@ -15,9 +15,10 @@ in `models/bert/config.json`.
 | `lr` | TF-IDF (1-2 grams, 10,000 features) + multinomial Logistic Regression, `saga`, `class_weight="balanced"` | ~30k coefficients | scikit-learn 1.7.2 |
 | `lstm` | Embedding(10k x 100) → Bi-LSTM(128) → Bi-LSTM(64) → Dense | 1.42M | Keras 3.12 |
 | `gru` | Embedding(10k x 100) → Bi-GRU(128) → Bi-GRU(64) → Dense | 1.32M | Keras 3.12 |
-| `bert` | Fine-tuned `cardiffnlp/twitter-roberta-base-sentiment` | 125M | Transformers 4.57 |
+| `roberta` | Fine-tuned `cardiffnlp/twitter-roberta-base-sentiment` | 125M | Transformers 4.57 |
 
-Despite the directory name, `bert` is **RoBERTa**.
+Keyed as `bert` until the name was corrected; that key still resolves to
+`roberta` as a deprecated alias.
 
 ## Intended use
 
@@ -78,7 +79,7 @@ split is 2,000 examples against 12,284; **quote the test numbers.**
 
 ```bash
 pip install -r requirements/train.txt
-make train-lr && make train-lstm && make train-gru && make train-bert
+make train-lr && make train-lstm && make train-gru && make train-roberta
 make evaluate
 ```
 

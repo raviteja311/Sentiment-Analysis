@@ -28,6 +28,7 @@ from src.config import (
     MODELS_REPO,
     MODELS_REPO_REVISION,
     REMOTE_ARTIFACTS,
+    resolve_model,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ def remote_files(models: list[str] | None = None) -> list[str]:
     selected = models or list(MODEL_KEYS)
     files: list[str] = []
     for model in selected:
-        files.extend(REMOTE_ARTIFACTS.get(model, ()))
+        files.extend(REMOTE_ARTIFACTS.get(resolve_model(model), ()))
     return files
 
 

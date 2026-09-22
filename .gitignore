@@ -241,8 +241,8 @@ htmlcov/
 # unremarkable in git (the LR pipeline, tokenizers, the transformer's config and
 # vocabulary) stays tracked, so a plain clone can still serve predictions.
 models/**/*.keras
-models/bert/model.safetensors
-models/bert/training_args.bin
+models/roberta/model.safetensors
+models/roberta/training_args.bin
 
 # Download metadata huggingface_hub writes beside the fetched files.
 models/.cache/

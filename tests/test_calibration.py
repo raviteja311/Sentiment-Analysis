@@ -194,13 +194,13 @@ def test_temperature_round_trips(monkeypatch, tmp_path):
 
 def test_table_reports_before_and_after():
     record = {
-        "model": "bert",
+        "model": "roberta",
         "temperature": 1.8,
         "before": {"ece": 0.2, "mean_confidence": 0.95, "accuracy": 0.7},
         "after": {"ece": 0.02, "mean_confidence": 0.72, "accuracy": 0.7},
     }
     table = calibration.markdown_table([record])
-    assert "bert" in table
+    assert "roberta" in table
     assert "1.80" in table
 
 

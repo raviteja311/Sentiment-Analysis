@@ -27,7 +27,7 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from api.observability import configure_logging, request_id_middleware
 from api.rate_limit import build_limiter, rate_limit_exceeded_handler
-from src.config import MODEL_KEYS
+from src.config import MODEL_ALIASES, MODEL_KEYS, resolve_model
 from src.inference.predictor import (
     ModelUnavailableError,
     Prediction,
@@ -64,14 +64,23 @@ app.add_middleware(SlowAPIMiddleware)
 
 class PredictRequest(BaseModel):
     text: str = Field(min_length=1, max_length=5_000)
-    model: str = Field(default="lr", description=f"One of: {', '.join(MODEL_KEYS)}")
+    model: str = Field(
+        default="lr",
+        description=(
+            f"One of: {', '.join(MODEL_KEYS)}. "
+            f"Deprecated aliases: {', '.join(MODEL_ALIASES)}."
+        ),
+    )
 
     @field_validator("model")
     @classmethod
     def known_model(cls, value: str) -> str:
-        if value not in MODEL_KEYS:
+        # Deprecated aliases resolve to the canonical key, so a request written
+        # against the old name still works.
+        resolved = resolve_model(value)
+        if resolved not in MODEL_KEYS:
             raise ValueError(f"must be one of: {', '.join(MODEL_KEYS)}")
-        return value
+        return resolved
 
 
 class BatchPredictRequest(BaseModel):
@@ -81,9 +90,12 @@ class BatchPredictRequest(BaseModel):
     @field_validator("model")
     @classmethod
     def known_model(cls, value: str) -> str:
-        if value not in MODEL_KEYS:
+        # Deprecated aliases resolve to the canonical key, so a request written
+        # against the old name still works.
+        resolved = resolve_model(value)
+        if resolved not in MODEL_KEYS:
             raise ValueError(f"must be one of: {', '.join(MODEL_KEYS)}")
-        return value
+        return resolved
 
 
 class PredictResponse(BaseModel):

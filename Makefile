@@ -3,7 +3,7 @@ IMAGE ?= sentiment-analysis-api:local
 PORT ?= 8000
 
 .PHONY: help install install-dev install-train api ui test lint format \
-        train-lr train-lstm train-gru train-bert evaluate calibrate \
+        train-lr train-lstm train-gru train-roberta evaluate calibrate \
         docker-build docker-run clean
 
 help:  ## Show this help
@@ -64,8 +64,8 @@ train-lstm:  ## Train the Bi-LSTM (tens of minutes, CPU)
 train-gru:  ## Train the Bi-GRU (tens of minutes, CPU)
 	$(PYTHON) -m src.training.train_gru
 
-train-bert:  ## Fine-tune the Twitter-RoBERTa checkpoint (GPU strongly advised)
-	$(PYTHON) -m src.training.train_bert
+train-roberta:  ## Fine-tune the Twitter-RoBERTa checkpoint (GPU strongly advised)
+	$(PYTHON) -m src.training.train_roberta
 
 evaluate:  ## Score every available model and print the README table
 	$(PYTHON) -m src.evaluate

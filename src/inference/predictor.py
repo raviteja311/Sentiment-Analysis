@@ -29,8 +29,6 @@ from pathlib import Path
 import numpy as np
 
 from src.config import (
-    BERT_CONFIG,
-    BERT_DIR,
     LABELS,
     LR_DIR,
     MODEL_DIRS,
@@ -40,7 +38,10 @@ from src.config import (
     PROJECT_ROOT,
     REQUIRED_ARTIFACTS,
     RETRAIN_COMMANDS,
+    ROBERTA_CONFIG,
+    ROBERTA_DIR,
     SEQUENCE_CONFIG,
+    resolve_model,
 )
 from src.utils.preprocessing import preprocess_tweet
 
@@ -111,6 +112,7 @@ def _recovery_hint(path: Path) -> str:
 
 def check_artifacts(model: str) -> str | None:
     """Return a human-readable reason the model cannot be loaded, or ``None``."""
+    model = resolve_model(model)
     _require_known_model(model)
     retrain = RETRAIN_COMMANDS[model]
 
@@ -256,15 +258,11 @@ class SequencePredictor(Predictor):
         return self._model.predict(padded, verbose=0)
 
 
-class BertPredictor(Predictor):
-    """Fine-tuned Twitter-RoBERTa checkpoint.
-
-    The directory is named ``models/bert`` for historical reasons; the weights
-    are RoBERTa (``model_type: roberta`` in its config).
-    """
+class RobertaPredictor(Predictor):
+    """Fine-tuned Twitter-RoBERTa checkpoint."""
 
     def __init__(self, batch_size: int = 16, device: str | None = None) -> None:
-        super().__init__("bert")
+        super().__init__("roberta")
         import torch
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
@@ -272,8 +270,8 @@ class BertPredictor(Predictor):
         self._batch_size = batch_size
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
 
-        self._tokenizer = AutoTokenizer.from_pretrained(str(BERT_DIR), use_fast=True)
-        self._model = AutoModelForSequenceClassification.from_pretrained(str(BERT_DIR))
+        self._tokenizer = AutoTokenizer.from_pretrained(str(ROBERTA_DIR), use_fast=True)
+        self._model = AutoModelForSequenceClassification.from_pretrained(str(ROBERTA_DIR))
         self._model.to(self.device)
         self._model.eval()
 
@@ -287,7 +285,7 @@ class BertPredictor(Predictor):
                 return_tensors="pt",
                 truncation=True,
                 padding=True,
-                max_length=BERT_CONFIG.max_len,
+                max_length=ROBERTA_CONFIG.max_len,
             )
             encoded = {key: value.to(self.device) for key, value in encoded.items()}
             with torch.no_grad():
@@ -300,12 +298,12 @@ _PREDICTORS = {
     "lr": LRPredictor,
     "lstm": lambda: SequencePredictor("lstm"),
     "gru": lambda: SequencePredictor("gru"),
-    "bert": BertPredictor,
+    "roberta": RobertaPredictor,
 }
 
 
 @functools.cache
-def load_predictor(model: str) -> Predictor:
+def _load_predictor_cached(model: str) -> Predictor:
     """Load a predictor, reusing the instance on subsequent calls.
 
     Raises :class:`ModelUnavailableError` if the artifacts are missing or are
@@ -315,9 +313,15 @@ def load_predictor(model: str) -> Predictor:
     return _PREDICTORS[model]()
 
 
+def load_predictor(model: str) -> Predictor:
+    """Load a predictor by key, resolving deprecated aliases first so that an
+    alias and its canonical name share one cached instance."""
+    return _load_predictor_cached(resolve_model(model))
+
+
 def clear_cache() -> None:
     """Drop cached predictors (used by tests and after retraining)."""
-    load_predictor.cache_clear()
+    _load_predictor_cached.cache_clear()
 
 
 def predict(text: str, model: str) -> Prediction:

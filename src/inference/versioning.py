@@ -20,7 +20,7 @@ import functools
 import hashlib
 from pathlib import Path
 
-from src.config import MODEL_DIRS, REQUIRED_ARTIFACTS
+from src.config import MODEL_DIRS, REQUIRED_ARTIFACTS, resolve_model
 
 # Enough to be unambiguous in a log line without being unreadable.
 VERSION_LENGTH = 12
@@ -66,6 +66,7 @@ def file_digest(path: Path) -> str | None:
 
 def versioned_files(model: str) -> list[Path]:
     """Files whose contents determine what this model outputs."""
+    model = resolve_model(model)
     files = list(REQUIRED_ARTIFACTS[model])
     calibration = MODEL_DIRS[model] / "calibration.json"
     if calibration.exists():

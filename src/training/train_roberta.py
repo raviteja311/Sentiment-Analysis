@@ -1,9 +1,8 @@
 """Fine-tune the Twitter-RoBERTa checkpoint on tweet_eval sentiment.
 
-The script is named train_bert.py and writes to models/bert/ for historical
-reasons. The model is RoBERTa: models/bert/config.json reports model_type
-"roberta", and the tokenizer is byte-pair (vocab.json + merges.txt) rather than
-BERT's WordPiece.
+The tokenizer is byte-pair (vocab.json + merges.txt) rather than BERT's
+WordPiece. Both the script and the directory were called "bert" until the name
+was corrected; `config.MODEL_ALIASES` keeps the old key working.
 
 Two things changed after the first training run:
 
@@ -32,13 +31,13 @@ from transformers import (
 )
 
 from src.config import (
-    BERT_CONFIG,
-    BERT_DIR,
     ID2LABEL,
     LABEL2ID,
     METRICS_DIR,
     NUM_LABELS,
     REPORTS_DIR,
+    ROBERTA_CONFIG,
+    ROBERTA_DIR,
     SEED,
 )
 from src.data import describe, load_raw_dataset
@@ -66,9 +65,9 @@ def trainer_metrics(eval_pred):
     }
 
 
-def main(config=BERT_CONFIG):
+def main(config=ROBERTA_CONFIG):
     logging.basicConfig(level=logging.INFO, format="%(message)s")
-    BERT_DIR.mkdir(parents=True, exist_ok=True)
+    ROBERTA_DIR.mkdir(parents=True, exist_ok=True)
 
     dataset = load_raw_dataset()
     dataset = dataset.map(preprocess_examples, batched=True)
@@ -99,7 +98,7 @@ def main(config=BERT_CONFIG):
     tokenized.set_format(type="torch")
 
     training_args = TrainingArguments(
-        output_dir=str(BERT_DIR),
+        output_dir=str(ROBERTA_DIR),
         eval_strategy="epoch",
         save_strategy="epoch",
         per_device_train_batch_size=config.batch_size,
@@ -116,7 +115,7 @@ def main(config=BERT_CONFIG):
         greater_is_better=True,
         # Keep TensorBoard event files out of models/, where they were being
         # committed alongside the weights.
-        logging_dir=str(REPORTS_DIR / "tb_logs" / "bert"),
+        logging_dir=str(REPORTS_DIR / "tb_logs" / "roberta"),
         seed=SEED,
         push_to_hub=False,
         # Mixed precision roughly halves activation memory. On a 4 GB card that
@@ -152,17 +151,17 @@ def main(config=BERT_CONFIG):
             metrics[split]["f1_macro"],
         )
 
-    LOGGER.info("Saving model and tokenizer to %s", BERT_DIR)
-    trainer.save_model(str(BERT_DIR))
-    tokenizer.save_pretrained(str(BERT_DIR))
+    LOGGER.info("Saving model and tokenizer to %s", ROBERTA_DIR)
+    trainer.save_model(str(ROBERTA_DIR))
+    tokenizer.save_pretrained(str(ROBERTA_DIR))
 
     report = build_report(
-        model="bert",
+        model="roberta",
         hyperparameters=asdict(config),
         dataset=describe(dataset),
         metrics=metrics,
     )
-    report_path = METRICS_DIR / "bert.json"
+    report_path = METRICS_DIR / "roberta.json"
     save_json(report, report_path)
     LOGGER.info("Wrote metrics: %s", report_path)
 

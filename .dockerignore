@@ -36,5 +36,5 @@ models/**/runs/
 # FETCH_MODELS build arg), never copied from the context - otherwise every local
 # build would push half a gigabyte into the daemon before doing anything.
 models/**/*.keras
-models/bert/model.safetensors
-models/bert/training_args.bin
+models/roberta/model.safetensors
+models/roberta/training_args.bin

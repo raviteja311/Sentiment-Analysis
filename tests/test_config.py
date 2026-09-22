@@ -54,15 +54,42 @@ def test_sequence_config_early_stopping_can_actually_fire():
     assert config.SEQUENCE_CONFIG.early_stopping_patience < config.SEQUENCE_CONFIG.epochs
 
 
-def test_bert_config_points_at_the_roberta_checkpoint():
-    assert "roberta" in config.BERT_CONFIG.base_model
+def test_roberta_config_points_at_the_roberta_checkpoint():
+    assert "roberta" in config.ROBERTA_CONFIG.base_model
 
 
 @pytest.mark.skipif(
-    not (config.BERT_DIR / "config.json").is_file(),
-    reason="models/bert/config.json not present",
+    not (config.ROBERTA_DIR / "config.json").is_file(),
+    reason="models/roberta/config.json not present",
 )
 def test_saved_transformer_config_uses_real_label_names():
-    saved = json.loads((config.BERT_DIR / "config.json").read_text(encoding="utf-8"))
+    saved = json.loads((config.ROBERTA_DIR / "config.json").read_text(encoding="utf-8"))
     assert {int(k): v for k, v in saved["id2label"].items()} == config.ID2LABEL
     assert saved["label2id"] == config.LABEL2ID
+
+
+# --- deprecated aliases ----------------------------------------------------
+
+
+def test_the_old_transformer_key_still_resolves():
+    # The model was called "bert" before its name was corrected to match the
+    # checkpoint. Saved requests and scripts must not break on a naming fix.
+    assert config.resolve_model("bert") == "roberta"
+
+
+@pytest.mark.parametrize("model", config.MODEL_KEYS)
+def test_canonical_keys_resolve_to_themselves(model):
+    assert config.resolve_model(model) == model
+
+
+def test_an_unknown_name_is_returned_unchanged():
+    # Resolution is not validation; the caller still rejects unknown models.
+    assert config.resolve_model("nonsense") == "nonsense"
+
+
+def test_no_alias_shadows_a_canonical_key():
+    assert not set(config.MODEL_ALIASES) & set(config.MODEL_KEYS)
+
+
+def test_every_alias_points_at_a_real_model():
+    assert set(config.MODEL_ALIASES.values()) <= set(config.MODEL_KEYS)

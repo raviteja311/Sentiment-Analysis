@@ -48,7 +48,7 @@ COPY models/ models/
 # Which models' weights to bake into the image. Empty by default, which keeps
 # the image small and leaves it serving Logistic Regression only; the rest can
 # be mounted at run time (see docker-compose.yml) or baked in with:
-#   docker build --target cpu --build-arg FETCH_MODELS="lstm gru bert" .
+#   docker build --target cpu --build-arg FETCH_MODELS="lstm gru roberta" .
 ARG FETCH_MODELS=""
 RUN if [ -n "$FETCH_MODELS" ]; then \
         python -m src.artifacts --models $FETCH_MODELS; \
