@@ -10,6 +10,11 @@ Makefile text eol=lf
 # Large binary model artifacts tracked with Git LFS.
 *.safetensors filter=lfs diff=lfs merge=lfs -text
 *.keras       filter=lfs diff=lfs merge=lfs -text
-*.joblib      filter=lfs diff=lfs merge=lfs -text
 *.h5          filter=lfs diff=lfs merge=lfs -text
 *.bin         filter=lfs diff=lfs merge=lfs -text
+
+# *.joblib is deliberately NOT in LFS. The LR pipeline is ~600 KB and the
+# tokenizers ~1.8 MB, so LFS would only add bandwidth cost and the pointer-stub
+# failure mode. Keeping them as ordinary blobs means a plain `git clone` with no
+# `git lfs pull` still gets a working Logistic Regression model - which the CI
+# container job relies on when it asserts a real prediction.
