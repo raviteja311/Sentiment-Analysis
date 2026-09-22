@@ -68,6 +68,9 @@ jobs:
       - name: Build the CPU image
         run: docker build --target cpu -t sentiment-analysis-api:ci .
 
+      # models/lr/pipeline.joblib predates *.joblib being tracked by LFS, so it
+      # is a real blob and the LR model is genuinely servable here. The .keras
+      # and .safetensors weights are stubs, so those models are not.
       - name: Start the container
         run: |
           docker run -d --name api -p 8000:8000 sentiment-analysis-api:ci
@@ -76,19 +79,51 @@ jobs:
             sleep 2
           done
 
-      - name: Liveness answers even with no usable weights
+      - name: Liveness
         run: curl -sf http://localhost:8000/health | grep -q '"status":"ok"'
 
-      - name: Readiness degrades to 503 rather than crashing
+      - name: Readiness reports the LR model
+        run: curl -sf http://localhost:8000/ready | grep -q '"lr"'
+
+      - name: A real prediction round-trips through the image
         run: |
-          code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/ready)
-          echo "GET /ready -> $code"
-          test "$code" = "503"
+          predict() {
+            curl -sf -X POST http://localhost:8000/predict \
+              -H 'Content-Type: application/json' \
+              -d "{\"text\":\"$1\",\"model\":\"lr\"}"
+          }
+          positive=$(predict "this is fantastic")
+          negative=$(predict "absolutely awful, i hate it")
+          echo "$positive"
+          echo "$negative"
+          echo "$positive" | grep -q '"label":"positive"'
+          echo "$negative" | grep -q '"label":"negative"'
+
+      - name: Models with stubbed weights are reported, not hidden
+        run: curl -sf http://localhost:8000/models | grep -q 'Git LFS pointer'
+
+      - name: Readiness degrades to 503 when no artifacts are present at all
+        run: |
+          mkdir -p /tmp/no-models
+          docker run -d --name api-empty -p 8001:8000 \
+            -v /tmp/no-models:/app/models:ro sentiment-analysis-api:ci
+          for _ in $(seq 1 30); do
+            curl -sf http://localhost:8001/health && break
+            sleep 2
+          done
+          ready=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8001/ready)
+          predict=$(curl -s -o /dev/null -w '%{http_code}' \
+            -X POST http://localhost:8001/predict \
+            -H 'Content-Type: application/json' \
+            -d '{"text":"hi","model":"lr"}')
+          echo "GET /ready -> $ready, POST /predict -> $predict"
+          test "$ready" = "503"
+          test "$predict" = "503"
 
       - name: Container logs
         if: always()
         run: docker logs api
 
-      - name: Stop the container
+      - name: Stop the containers
         if: always()
-        run: docker rm -f api
+        run: docker rm -f api api-empty
