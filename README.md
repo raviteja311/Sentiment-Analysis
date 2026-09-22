@@ -57,24 +57,37 @@ run; it is not needed for inference.
 
 ## Quick start
 
-Requires **Python 3.12** (3.11 is also covered by CI) and [Git LFS](https://git-lfs.com)
-for the neural network weights.
+Requires **Python 3.12** (3.11 is also covered by CI).
 
 ```bash
 git clone https://github.com/raviteja311/Sentiment-Analysis.git
 cd Sentiment-Analysis
-git lfs install && git lfs pull
 python -m venv .venv && .venv/Scripts/activate   # Linux/macOS: source .venv/bin/activate
 pip install -r requirements/inference-cpu.txt
+make fetch-weights                               # 564 MB, see Weights below
 ```
-
-Without `git lfs pull` the `.keras` and `.safetensors` files stay as pointer
-stubs. That is handled rather than fatal: those models report themselves
-unavailable, the UI hides them, the API answers 503, and the Logistic Regression
-model still works, because its artifact is a plain git blob.
 
 For a CPU-sized PyTorch install, add
 `--extra-index-url https://download.pytorch.org/whl/cpu`.
+
+### Weights
+
+The large weights are **not in git**. They live on the Hugging Face Hub at
+[RAVITEJA311/sentiment-analysis-models](https://huggingface.co/RAVITEJA311/sentiment-analysis-models)
+and are fetched on demand:
+
+```bash
+make fetch-weights                        # all of them, 564 MB
+python -m src.artifacts --models lstm     # or just one
+```
+
+Point it elsewhere with `SENTIMENT_MODELS_REPO`.
+
+Skipping this step is not fatal. The Logistic Regression pipeline, the
+tokenizers and the transformer's config and vocabulary are small enough to stay
+in git, so a plain clone still serves predictions from `lr`; the neural models
+report themselves unavailable with the command that fixes it, the UI hides them,
+and the API answers 503 rather than 500.
 
 ### API
 
@@ -121,6 +134,14 @@ docker run --rm -p 8000:8000 sentiment-analysis-api:local
 docker compose up --build      # API on 8000, UI on 8501
 ```
 
+The image carries only the small artifacts, so it serves `lr` out of the box and
+stays under a gigabyte. Bake the rest in at build time, or mount them at run
+time as docker-compose does:
+
+```bash
+docker build --target cpu --build-arg FETCH_MODELS="lstm gru bert" .
+```
+
 ## Retraining
 
 ```bash
@@ -134,7 +155,8 @@ make evaluate        # scores every available model, regenerates the table above
 
 Training writes both the artifact and a metrics record to `reports/metrics/`.
 `make evaluate` merges its results into those records rather than replacing
-them, so the training provenance survives.
+them, so the training provenance survives. Publish retrained weights with
+`make publish-weights` (needs `huggingface-cli login`).
 
 TensorFlow has no native Windows GPU support from 2.11 onward, so the LSTM and
 GRU train on CPU there regardless of what hardware is present. The transformer
@@ -144,12 +166,12 @@ what keeps it inside 4 GB of VRAM.
 ## Tests and quality
 
 ```bash
-make test         # 118 tests
+make test         # 131 tests
 make lint         # ruff + black
 ```
 
 Tests skip themselves rather than fail when a model's weights are absent, so the
-suite is meaningful on a clone without Git LFS. CI runs lint, the test suite on
+suite is meaningful on a clone where `make fetch-weights` has not been run. CI runs lint, the test suite on
 Python 3.11 and 3.12, and a container smoke test that asserts real predictions
 from the image and a 503 when no artifacts are present.
 
@@ -159,10 +181,11 @@ from the image and a 503 when no artifacts are present.
 .
 ├── api/                  # FastAPI service
 ├── app/                  # Streamlit UI
-├── models/               # Trained artifacts (large files via Git LFS)
+├── models/               # Small artifacts; large weights fetched from the Hub
 ├── reports/metrics/      # Generated metrics records
 ├── requirements/         # base, inference-cpu, train, dev
 ├── src/
+│   ├── artifacts.py      # fetches the large weights
 │   ├── config.py         # labels, paths, hyperparameters
 │   ├── data.py           # dataset loading
 │   ├── evaluate.py       # evaluation and the results table
@@ -170,6 +193,7 @@ from the image and a 503 when no artifacts are present.
 │   ├── models/           # Keras architectures
 │   ├── training/         # training entry points
 │   └── utils/            # preprocessing, metrics, IO
+├── scripts/              # publish_weights.py
 ├── tests/
 ├── Dockerfile
 ├── docker-compose.yml

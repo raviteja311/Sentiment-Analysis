@@ -235,3 +235,14 @@ htmlcov/
 # Environment
 .env
 .venv/
+
+# Large model weights. These live on the Hugging Face Hub, not in git - see
+# src/artifacts.py and `make fetch-weights`. Everything small enough to be
+# unremarkable in git (the LR pipeline, tokenizers, the transformer's config and
+# vocabulary) stays tracked, so a plain clone can still serve predictions.
+models/**/*.keras
+models/bert/model.safetensors
+models/bert/training_args.bin
+
+# Download metadata huggingface_hub writes beside the fetched files.
+models/.cache/

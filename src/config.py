@@ -99,7 +99,7 @@ MODEL_DIRS: dict[str, Path] = {
 # tokenizers, the transformer's config and vocabulary - stays in git, so a plain
 # clone still has a working model.
 
-DEFAULT_MODELS_REPO = "raviteja311/sentiment-analysis-models"
+DEFAULT_MODELS_REPO = "RAVITEJA311/sentiment-analysis-models"
 MODELS_REPO = os.environ.get("SENTIMENT_MODELS_REPO", DEFAULT_MODELS_REPO)
 MODELS_REPO_REVISION = os.environ.get("SENTIMENT_MODELS_REVISION", "main")
 

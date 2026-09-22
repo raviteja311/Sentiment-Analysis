@@ -28,6 +28,13 @@ Makefile
 pyproject.toml
 
 # Intermediate training checkpoints and TensorBoard logs, if a local run left
-# any behind. The final weights live directly in models/<name>/.
+# any behind.
 models/**/checkpoint-*/
 models/**/runs/
+
+# Large weights are fetched from object storage during the build (see the
+# FETCH_MODELS build arg), never copied from the context - otherwise every local
+# build would push half a gigabyte into the daemon before doing anything.
+models/**/*.keras
+models/bert/model.safetensors
+models/bert/training_args.bin

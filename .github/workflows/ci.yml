@@ -5,11 +5,12 @@ on:
     branches: [main]
   pull_request:
 
-# Note on Git LFS: none of these jobs pull LFS objects, so the model weights
-# arrive as 133-byte pointer stubs. That is deliberate. It keeps CI off the LFS
-# bandwidth quota, and it exercises the path that matters most for a fresh
-# clone: tests that need real weights skip themselves, and the API reports
-# itself unready rather than crashing.
+# The large weights are not in git at all - they live on the Hugging Face Hub
+# and are fetched on demand. CI deliberately does not fetch them, so it runs
+# against exactly what a fresh clone provides: the small artifacts only. That
+# exercises the path that matters most - the Logistic Regression model still
+# serves predictions, while the neural models report themselves unavailable
+# instead of crashing.
 
 jobs:
   lint:
@@ -99,8 +100,11 @@ jobs:
           echo "$positive" | grep -q '"label":"positive"'
           echo "$negative" | grep -q '"label":"negative"'
 
-      - name: Models with stubbed weights are reported, not hidden
-        run: curl -sf http://localhost:8000/models | grep -q 'Git LFS pointer'
+      - name: Models without fetched weights are reported, not hidden
+        run: |
+          body=$(curl -sf http://localhost:8000/models)
+          echo "$body"
+          echo "$body" | grep -q 'make fetch-weights'
 
       - name: Readiness degrades to 503 when no artifacts are present at all
         run: |

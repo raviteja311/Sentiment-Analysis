@@ -60,9 +60,13 @@ def main(argv=None) -> int:
         return 0
 
     api = HfApi()
-    api.create_repo(
-        repo_id=args.repo, repo_type="model", private=args.private, exist_ok=True
-    )
+    # A fine-grained token scoped to one repository can write to it without
+    # being allowed to create repositories, so only create when it is absent.
+    if api.repo_exists(repo_id=args.repo, repo_type="model"):
+        LOGGER.info("Repository %s already exists.", args.repo)
+    else:
+        LOGGER.info("Creating repository %s...", args.repo)
+        api.create_repo(repo_id=args.repo, repo_type="model", private=args.private)
     for relative in files:
         LOGGER.info("Uploading %s...", relative)
         api.upload_file(
