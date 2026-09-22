@@ -156,5 +156,16 @@
         }
       }
     }
+  },
+  "evaluation": {
+    "split": "test",
+    "size": 12284,
+    "batch_size": 64,
+    "class_distribution": {
+      "negative": 3972,
+      "neutral": 5937,
+      "positive": 2375
+    },
+    "evaluated_at": "2026-09-22T08:25:51+00:00"
   }
 }
