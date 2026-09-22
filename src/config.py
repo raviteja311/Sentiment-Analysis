@@ -156,6 +156,13 @@ class SequenceConfig:
     epochs: int = 4
     oov_token: str = "<OOV>"
     early_stopping_patience: int = 2
+    # Off by default, on evidence. The training split is 45% neutral and 16%
+    # negative, and the linear baseline uses balanced weights, so weighting
+    # these models looked obviously right - but measured, it trades a 2-3 point
+    # gain on negative for a 6-10 point collapse on neutral, and costs both
+    # models accuracy and macro F1. See MODEL_CARD.md. Set to "balanced" to
+    # train weighted anyway; the training run records which was used.
+    class_weight: str | None = None
 
 
 @dataclass(frozen=True)

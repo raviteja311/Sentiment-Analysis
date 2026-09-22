@@ -99,12 +99,28 @@ positive-class F1 on test (0.522 and 0.530) is far below their neutral-class F1
 (0.66), even though positive is the second-largest class in training. The
 transformer does not share this failure mode (0.700 positive F1).
 
-**Class imbalance is only partly addressed, and does not explain the errors.**
-The Logistic Regression uses `class_weight="balanced"`; the neural models do not.
-But the smallest class - negative, at 15.5% of training data - is not the
-worst-scoring one. Positive is, for all three non-transformer models, despite
-having two and a half times as many training examples. Adding class weights to
-the neural models is worth trying, but it is not the whole story.
+**Class imbalance is only partly addressed, and weighting it made things
+worse.** The Logistic Regression uses `class_weight="balanced"`; the neural
+models deliberately do not. That looked like an oversight, so it was measured:
+both were retrained with balanced weights (negative 2.14, neutral 0.74,
+positive 0.85) and evaluated on test.
+
+| | LSTM | GRU |
+|---|---|---|
+| Accuracy | 0.6168 → 0.5961 | 0.6175 → 0.5798 |
+| Macro F1 | 0.5921 → 0.5838 | 0.5952 → 0.5727 |
+| F1 negative | 0.5942 → 0.6242 | 0.5980 → 0.6215 |
+| F1 neutral | 0.6598 → 0.5948 | 0.6573 → 0.5521 |
+| F1 positive | 0.5223 → 0.5324 | 0.5303 → 0.5446 |
+
+Weighting buys 2-3 points on negative, the rare class, and about 1 on positive,
+and pays 6-10 points on neutral, the 45% majority. Both models lose accuracy and
+macro F1. The shipped artifacts are therefore unweighted; `SequenceConfig.class_weight`
+turns it back on for anyone who would rather have the negative-class recall.
+
+Note also that the smallest class is not the worst-scoring one. Positive is, for
+all three non-transformer models, despite having two and a half times more
+training examples than negative - so imbalance was never the main problem here.
 
 **Confidence scores are calibrated, within limits.** They were raw softmax
 outputs; the transformer averaged 0.917 confidence at 70.8% accuracy. Temperature

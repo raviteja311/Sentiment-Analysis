@@ -19,6 +19,7 @@ from dataclasses import asdict
 import numpy as np
 
 from src.config import (
+    LABELS,
     METRICS_DIR,
     MODEL_DIRS,
     NUM_LABELS,
@@ -66,6 +67,21 @@ def texts_to_padded(tokenizer, texts, max_len: int = SEQUENCE_CONFIG.max_len):
         padding="post",
         truncating="post",
     )
+
+
+def compute_class_weights(labels, strategy: str | None) -> dict[int, float] | None:
+    """Per-class weights for an imbalanced training set.
+
+    Returns None when ``strategy`` is None, which trains unweighted.
+    """
+    if not strategy:
+        return None
+
+    from sklearn.utils.class_weight import compute_class_weight
+
+    classes = np.arange(NUM_LABELS)
+    weights = compute_class_weight(strategy, classes=classes, y=np.asarray(labels))
+    return {int(cls): float(weight) for cls, weight in zip(classes, weights, strict=True)}
 
 
 def train_sequence_model(
@@ -131,6 +147,14 @@ def train_sequence_model(
         ),
     ]
 
+    class_weight = compute_class_weights(train_labels, config.class_weight)
+    if class_weight:
+        LOGGER.info(
+            "Class weights (%s): %s",
+            config.class_weight,
+            {LABELS[i]: round(w, 3) for i, w in class_weight.items()},
+        )
+
     LOGGER.info("Training...")
     model.fit(
         features["train"],
@@ -142,6 +166,7 @@ def train_sequence_model(
         epochs=config.epochs,
         batch_size=config.batch_size,
         callbacks=callbacks,
+        class_weight=class_weight,
         verbose=1,
     )
 
