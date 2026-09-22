@@ -76,6 +76,74 @@ def test_load_reports_reads_only_what_exists(tmp_path, monkeypatch, sample_repor
     assert [report["model"] for report in evaluate.load_reports()] == ["lr"]
 
 
+# --- evaluation merges into the training record ---------------------------
+
+
+def test_evaluation_keeps_the_hyperparameters_training_recorded(
+    tmp_path, monkeypatch, sample_report
+):
+    monkeypatch.setattr(evaluate, "METRICS_DIR", tmp_path)
+    training_record = dict(
+        sample_report, hyperparameters={"max_features": 10000, "solver": "saga"}
+    )
+    save_json(training_record, tmp_path / "lr.json")
+
+    merged = evaluate.update_record(
+        "lr", "test", compute_metrics([0, 1], [0, 1]), [0, 1], 64
+    )
+
+    assert merged["hyperparameters"] == {"max_features": 10000, "solver": "saga"}
+    assert merged["metrics"]["test"]["accuracy"] == 1.0
+    assert merged["evaluation"]["size"] == 2
+
+
+def test_evaluation_does_not_discard_other_splits(tmp_path, monkeypatch, sample_report):
+    monkeypatch.setattr(evaluate, "METRICS_DIR", tmp_path)
+    training_record = dict(sample_report)
+    training_record["metrics"] = {
+        "validation": compute_metrics([0, 1], [0, 1]),
+        "test": compute_metrics([0, 1], [0, 0]),
+    }
+    save_json(training_record, tmp_path / "lr.json")
+
+    merged = evaluate.update_record(
+        "lr", "test", compute_metrics([0, 1], [0, 1]), [0, 1], 64
+    )
+
+    assert set(merged["metrics"]) == {"validation", "test"}
+    assert merged["metrics"]["test"]["accuracy"] == 1.0
+
+
+def test_evaluation_without_a_training_record_claims_no_hyperparameters(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(evaluate, "METRICS_DIR", tmp_path)
+
+    record = evaluate.update_record(
+        "gru", "test", compute_metrics([0, 1], [0, 1]), [0, 1], 32
+    )
+
+    assert record["hyperparameters"] == {}
+    assert record["evaluation"]["batch_size"] == 32
+
+
+def test_example_count_prefers_the_evaluated_size():
+    report = {
+        "evaluation": {"split": "test", "size": 12284},
+        "dataset": {"split_sizes": {"test": 999}},
+    }
+    assert evaluate.example_count(report, "test") == 12284
+
+
+def test_example_count_falls_back_to_the_training_split_sizes():
+    report = {"dataset": {"split_sizes": {"test": 12284, "validation": 2000}}}
+    assert evaluate.example_count(report, "validation") == 2000
+
+
+def test_example_count_is_dash_when_nothing_records_it():
+    assert evaluate.example_count({"dataset": {}}, "test") == "-"
+
+
 # --- markdown table --------------------------------------------------------
 
 

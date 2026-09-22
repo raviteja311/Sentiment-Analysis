@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from datetime import UTC, datetime
 
 import numpy as np
 
@@ -79,20 +80,45 @@ def evaluate_model(
     metrics = evaluate_predictions(model, texts, labels, batch_size=batch_size)
     LOGGER.info("  accuracy=%.4f macro F1=%.4f", metrics["accuracy"], metrics["f1_macro"])
 
-    report = build_report(
-        model=model,
-        hyperparameters={"evaluation_batch_size": batch_size},
-        dataset={
-            "name": DATASET_NAME,
-            "config": DATASET_CONFIG,
-            "split": split,
-            "size": len(labels),
-            "class_distribution": class_distribution(labels),
-        },
-        metrics={split: metrics},
-    )
+    report = update_record(model, split, metrics, labels, batch_size)
     save_json(report, METRICS_DIR / f"{model}.json")
     return report
+
+
+def update_record(model: str, split: str, metrics: dict, labels, batch_size: int) -> dict:
+    """Merge an evaluation into the model's existing metrics record.
+
+    Training writes that record, and it carries the hyperparameters, the split
+    sizes and the class distribution the model was fitted on. An evaluation adds
+    a measurement to it; it must not overwrite it, or the provenance behind a
+    published number disappears the first time anyone runs the evaluation.
+    """
+    evaluation = {
+        "split": split,
+        "size": len(labels),
+        "batch_size": batch_size,
+        "class_distribution": class_distribution(labels),
+        "evaluated_at": datetime.now(UTC).isoformat(timespec="seconds"),
+    }
+
+    path = METRICS_DIR / f"{model}.json"
+    if path.exists():
+        record = load_json(path)
+        record.setdefault("metrics", {})[split] = metrics
+        record["evaluation"] = evaluation
+        return record
+
+    # No training record: this model was trained elsewhere, or the reports
+    # directory was cleaned. Say so rather than implying hyperparameters we
+    # cannot know.
+    record = build_report(
+        model=model,
+        hyperparameters={},
+        dataset={"name": DATASET_NAME, "config": DATASET_CONFIG},
+        metrics={split: metrics},
+    )
+    record["evaluation"] = evaluation
+    return record
 
 
 def evaluate_models(
@@ -129,6 +155,21 @@ def load_reports(models: list[str] | None = None) -> list[dict]:
     return reports
 
 
+def example_count(report: dict, split: str):
+    """How many examples a split's scores were measured on.
+
+    Records written by training carry every split's size; records written by an
+    evaluation carry only the split that was evaluated.
+    """
+    evaluation = report.get("evaluation") or {}
+    if evaluation.get("split") == split and "size" in evaluation:
+        return evaluation["size"]
+
+    dataset = report.get("dataset") or {}
+    sizes = dataset.get("split_sizes") or {}
+    return sizes.get(split, dataset.get("size", "-"))
+
+
 def markdown_table(reports: list[dict]) -> str:
     """Render reports as a Markdown table, ready to paste into the README."""
     if not reports:
@@ -149,7 +190,7 @@ def markdown_table(reports: list[dict]) -> str:
                 "| {name} | {split} | {size} | {acc:.4f} | {f1:.4f} | {per} |".format(
                     name=report.get("display_name", report["model"]),
                     split=split,
-                    size=report.get("dataset", {}).get("size", "-"),
+                    size=example_count(report, split),
                     acc=metrics["accuracy"],
                     f1=metrics["f1_macro"],
                     per=" | ".join(f"{value:.4f}" for value in per_class),
