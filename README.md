@@ -99,7 +99,7 @@ make api          # or: uvicorn api.main:app --host 0.0.0.0 --port 8000
 |---|---|
 | `GET /health` | liveness; answers even when no model is usable |
 | `GET /ready` | readiness; 503 when no model can be served |
-| `GET /models` | every model, whether it is available, and why not |
+| `GET /models` | every model: availability, reason, version and per-file digests |
 | `POST /predict` | classify one text |
 | `POST /predict/batch` | classify up to 256 texts |
 
@@ -112,11 +112,17 @@ curl -X POST localhost:8000/predict \
 ```json
 {
   "model": "bert",
+  "version": "f37af7616bcb",
   "label": "positive",
   "confidence": 0.9474,
   "probabilities": {"negative": 0.0210, "neutral": 0.0315, "positive": 0.9474}
 }
 ```
+
+`version` is a digest of the artifact that produced the prediction - the
+weights, the tokenizer and the calibration file - so a logged prediction stays
+traceable after a retrain or a re-fetch. `GET /models` reports the same version
+per model along with a digest for each file.
 
 Interactive docs are at `/docs`.
 
@@ -194,7 +200,7 @@ what keeps it inside 4 GB of VRAM.
 ## Tests and quality
 
 ```bash
-make test         # 159 tests
+make test         # 183 tests
 make lint         # ruff + black
 ```
 
@@ -218,7 +224,7 @@ from the image and a 503 when no artifacts are present.
 │   ├── config.py         # labels, paths, hyperparameters
 │   ├── data.py           # dataset loading
 │   ├── evaluate.py       # evaluation and the results table
-│   ├── inference/        # shared predictor used by API, UI and tests
+│   ├── inference/        # shared predictor and model versioning
 │   ├── models/           # Keras architectures
 │   ├── training/         # training entry points
 │   └── utils/            # preprocessing, metrics, IO

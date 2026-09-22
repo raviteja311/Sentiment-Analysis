@@ -71,6 +71,8 @@ class BatchPredictRequest(BaseModel):
 
 class PredictResponse(BaseModel):
     model: str
+    # Content-derived version of the artifact that produced this prediction.
+    version: str | None = None
     label: str
     confidence: float
     probabilities: dict[str, float]
@@ -79,6 +81,7 @@ class PredictResponse(BaseModel):
     def from_prediction(cls, prediction: Prediction) -> PredictResponse:
         return cls(
             model=prediction.model,
+            version=prediction.version,
             label=prediction.label,
             confidence=prediction.confidence,
             probabilities=prediction.probabilities,

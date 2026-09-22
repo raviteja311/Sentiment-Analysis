@@ -68,6 +68,9 @@ class Prediction:
     label: str
     confidence: float
     probabilities: dict[str, float]
+    # Which artifact produced this. Without it a logged prediction cannot be
+    # tied back to a model after the weights are retrained or swapped.
+    version: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -127,6 +130,8 @@ def check_artifacts(model: str) -> str | None:
 
 def model_status() -> dict[str, dict]:
     """Availability of every known model, for health endpoints and the UI."""
+    from src.inference.versioning import artifact_digests, model_version
+
     status = {}
     for model in MODEL_KEYS:
         reason = check_artifacts(model)
@@ -135,6 +140,10 @@ def model_status() -> dict[str, dict]:
             "path": _display_path(MODEL_DIRS[model]),
             "available": reason is None,
             "reason": reason,
+            # Content-derived, so a prediction can be traced to the bytes that
+            # produced it even after a retrain or a re-fetch.
+            "version": model_version(model),
+            "artifacts": artifact_digests(model),
         }
     return status
 
@@ -175,6 +184,10 @@ class Predictor:
         # scaling is monotonic, so this never changes a predicted label.
         self.temperature = load_temperature(key) or 1.0
 
+        from src.inference.versioning import model_version
+
+        self.version = model_version(key)
+
     def predict_proba(self, texts: Sequence[str]) -> np.ndarray:
         """Class probabilities, shape ``(len(texts), NUM_LABELS)``."""
         if not texts:
@@ -202,6 +215,7 @@ class Predictor:
             label=LABELS[index],
             confidence=float(probs[index]),
             probabilities={label: float(probs[i]) for i, label in enumerate(LABELS)},
+            version=self.version,
         )
 
     def _predict_proba(self, cleaned: list[str]) -> np.ndarray:

@@ -46,7 +46,14 @@ def test_available_models_is_a_subset_of_known_models():
 @pytest.mark.parametrize("model", MODEL_KEYS)
 def test_model_status_reports_every_model(model):
     status = model_status()[model]
-    assert set(status) == {"display_name", "path", "available", "reason"}
+    assert set(status) == {
+        "display_name",
+        "path",
+        "available",
+        "reason",
+        "version",
+        "artifacts",
+    }
     assert status["available"] is (status["reason"] is None)
 
 

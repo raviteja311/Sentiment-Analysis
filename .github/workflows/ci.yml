@@ -100,6 +100,13 @@ jobs:
           echo "$positive" | grep -q '"label":"positive"'
           echo "$negative" | grep -q '"label":"negative"'
 
+      - name: Predictions carry the version of the artifact that made them
+        run: |
+          body=$(curl -sf -X POST http://localhost:8000/predict             -H 'Content-Type: application/json'             -d '{"text":"this is fantastic","model":"lr"}')
+          echo "$body"
+          echo "$body" | grep -qE '"version":"[0-9a-f]{12}"'
+          curl -sf http://localhost:8000/models | grep -q '"version"'
+
       - name: Models without fetched weights are reported, not hidden
         run: |
           body=$(curl -sf http://localhost:8000/models)
