@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Note on Git LFS: none of these jobs pull LFS objects, so the model weights
+# arrive as 133-byte pointer stubs. That is deliberate. It keeps CI off the LFS
+# bandwidth quota, and it exercises the path that matters most for a fresh
+# clone: tests that need real weights skip themselves, and the API reports
+# itself unready rather than crashing.
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install lint tooling
+        run: pip install ruff==0.16.8 black==26.5.1
+
+      - name: Ruff
+        run: ruff check src api tests app
+
+      - name: Black
+        run: black --check src api tests app
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --extra-index-url https://download.pytorch.org/whl/cpu \
+            -r requirements/dev.txt
+
+      - name: Run tests
+        run: pytest -q
+
+  container:
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Build the CPU image
+        run: docker build --target cpu -t sentiment-analysis-api:ci .
+
+      - name: Start the container
+        run: |
+          docker run -d --name api -p 8000:8000 sentiment-analysis-api:ci
+          for _ in $(seq 1 30); do
+            curl -sf http://localhost:8000/health && break
+            sleep 2
+          done
+
+      - name: Liveness answers even with no usable weights
+        run: curl -sf http://localhost:8000/health | grep -q '"status":"ok"'
+
+      - name: Readiness degrades to 503 rather than crashing
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/ready)
+          echo "GET /ready -> $code"
+          test "$code" = "503"
+
+      - name: Container logs
+        if: always()
+        run: docker logs api
+
+      - name: Stop the container
+        if: always()
+        run: docker rm -f api

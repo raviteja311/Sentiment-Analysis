@@ -1,0 +1,33 @@
+# Keep the build context small and the image free of things it cannot use.
+
+.git/
+.github/
+.gitattributes
+.gitignore
+
+tests/
+reports/
+.vscode/
+
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+.venv/
+venv/
+env/
+
+*.md
+LICENSE
+docker-compose.yml
+Dockerfile
+Makefile
+pyproject.toml
+
+# Intermediate training checkpoints and TensorBoard logs, if a local run left
+# any behind. The final weights live directly in models/<name>/.
+models/**/checkpoint-*/
+models/**/runs/
