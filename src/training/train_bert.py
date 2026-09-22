@@ -20,6 +20,7 @@ import logging
 from dataclasses import asdict
 
 import numpy as np
+import torch
 from sklearn.metrics import accuracy_score, f1_score
 from transformers import (
     AutoModelForSequenceClassification,
@@ -118,6 +119,9 @@ def main(config=BERT_CONFIG):
         logging_dir=str(REPORTS_DIR / "tb_logs" / "bert"),
         seed=SEED,
         push_to_hub=False,
+        # Mixed precision roughly halves activation memory. On a 4 GB card that
+        # is the difference between fine-tuning at batch 8 and an OOM.
+        fp16=torch.cuda.is_available(),
     )
 
     trainer = Trainer(
