@@ -48,6 +48,7 @@ from src.utils.preprocessing import preprocess_tweet
 LFS_POINTER_PREFIX = b"version https://git-lfs"
 
 LFS_HINT = "Run `git lfs install && git lfs pull` to download it"
+FETCH_HINT = "Run `make fetch-weights` to download it"
 
 
 class ModelUnavailableError(RuntimeError):
@@ -92,6 +93,19 @@ def _display_path(path: Path) -> str:
         return path.as_posix()
 
 
+def _recovery_hint(path: Path) -> str:
+    """How to get this particular artifact back.
+
+    The large weights are fetched from object storage; the small ones live in
+    git, where an older clone may still have them as LFS pointer stubs.
+    """
+    from src.artifacts import is_remote
+
+    if is_remote(path):
+        return FETCH_HINT
+    return LFS_HINT
+
+
 def check_artifacts(model: str) -> str | None:
     """Return a human-readable reason the model cannot be loaded, or ``None``."""
     _require_known_model(model)
@@ -100,13 +114,13 @@ def check_artifacts(model: str) -> str | None:
     for path in REQUIRED_ARTIFACTS[model]:
         if not path.exists():
             return (
-                f"{_display_path(path)} is missing. {LFS_HINT}, "
+                f"{_display_path(path)} is missing. {_recovery_hint(path)}, "
                 f"or retrain with `{retrain}`."
             )
         if is_lfs_pointer(path):
             return (
                 f"{_display_path(path)} is a Git LFS pointer, not real model "
-                f"weights. {LFS_HINT}, or retrain with `{retrain}`."
+                f"weights. {_recovery_hint(path)}, or retrain with `{retrain}`."
             )
     return None
 

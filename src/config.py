@@ -11,6 +11,7 @@ cheap to import from tests, the API and the UI alike.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -34,10 +35,9 @@ BERT_DIR = MODELS_DIR / "bert"
 # ---------------------------------------------------------------------------
 
 # Index order is fixed by the tweet_eval sentiment dataset and by every trained
-# artifact under models/. Do not reorder it: models/bert/config.json still
-# carries the HuggingFace placeholder id2label ("LABEL_0", "LABEL_1",
-# "LABEL_2"), so until that metadata is rewritten this tuple is the only place
-# in the project where the meaning of index 0/1/2 is actually recorded.
+# artifact under models/. Do not reorder it. models/bert/config.json carries the
+# same mapping (it once held HuggingFace's LABEL_0/1/2 placeholders); a test
+# asserts the two agree, so a change here without a retrain will fail the suite.
 LABELS: tuple[str, ...] = ("negative", "neutral", "positive")
 NUM_LABELS = len(LABELS)
 ID2LABEL: dict[int, str] = {i: name for i, name in enumerate(LABELS)}
@@ -86,6 +86,30 @@ MODEL_DIRS: dict[str, Path] = {
     "lstm": LSTM_DIR,
     "gru": GRU_DIR,
     "bert": BERT_DIR,
+}
+
+# ---------------------------------------------------------------------------
+# Remote weights
+# ---------------------------------------------------------------------------
+#
+# The large weights live on the Hugging Face Hub rather than in git. Half a
+# gigabyte of safetensors in Git LFS costs bandwidth on every clone, fork and CI
+# checkout, and leaves pointer stubs behind when anyone forgets `git lfs pull`.
+# Everything small enough to be unremarkable in git - the LR pipeline, the
+# tokenizers, the transformer's config and vocabulary - stays in git, so a plain
+# clone still has a working model.
+
+DEFAULT_MODELS_REPO = "raviteja311/sentiment-analysis-models"
+MODELS_REPO = os.environ.get("SENTIMENT_MODELS_REPO", DEFAULT_MODELS_REPO)
+MODELS_REPO_REVISION = os.environ.get("SENTIMENT_MODELS_REVISION", "main")
+
+# Files fetched from the Hub, relative to MODELS_DIR. The layout on the Hub
+# mirrors models/ exactly.
+REMOTE_ARTIFACTS: dict[str, tuple[str, ...]] = {
+    "lr": (),
+    "lstm": ("lstm/model_final.keras", "lstm/best.keras"),
+    "gru": ("gru/model_final.keras", "gru/best.keras"),
+    "bert": ("bert/model.safetensors", "bert/training_args.bin"),
 }
 
 # Shown in the error message when an artifact is missing or is an LFS stub.

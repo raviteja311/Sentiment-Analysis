@@ -45,6 +45,14 @@ format:  ## Apply formatting and safe lint fixes
 	$(PYTHON) -m ruff check --fix src api tests app
 	$(PYTHON) -m black src api tests app
 
+# --- weights ---------------------------------------------------------------
+
+fetch-weights:  ## Download the large weights from the Hugging Face Hub
+	$(PYTHON) -m src.artifacts
+
+publish-weights:  ## Upload the large weights (requires `huggingface-cli login`)
+	$(PYTHON) scripts/publish_weights.py
+
 # --- training and evaluation ----------------------------------------------
 
 train-lr:  ## Train the TF-IDF + LogisticRegression baseline (minutes, CPU)

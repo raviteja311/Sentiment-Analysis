@@ -15,3 +15,6 @@ scikit-learn==1.7.2
 joblib==1.5.2
 
 emoji==2.16.0
+
+# Fetches the large model weights from object storage; see src/artifacts.py.
+huggingface-hub==0.36.2
