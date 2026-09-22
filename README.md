@@ -112,7 +112,7 @@ curl -X POST localhost:8000/predict \
 ```json
 {
   "model": "bert",
-  "version": "f37af7616bcb",
+  "version": "a378eddd7113",
   "label": "positive",
   "confidence": 0.9474,
   "probabilities": {"negative": 0.0210, "neutral": 0.0315, "positive": 0.9474}
@@ -200,7 +200,7 @@ what keeps it inside 4 GB of VRAM.
 ## Tests and quality
 
 ```bash
-make test         # 183 tests
+make test         # 186 tests
 make lint         # ruff + black
 ```
 

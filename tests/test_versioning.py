@@ -50,6 +50,32 @@ def test_different_content_gives_different_digests(tmp_path):
     assert versioning.file_digest(first) != versioning.file_digest(second)
 
 
+def test_line_endings_do_not_change_a_text_digest(tmp_path):
+    # git normalises these to LF in the repository, so a Windows checkout holds
+    # CRLF and a Linux one holds LF. The same committed file must version the
+    # same on both - this was caught by CI and a local run disagreeing.
+    crlf, lf = tmp_path / "crlf.json", tmp_path / "lf.json"
+    crlf.write_bytes(b'{\r\n  "temperature": 2.0\r\n}\r\n')
+    lf.write_bytes(b'{\n  "temperature": 2.0\n}\n')
+    assert versioning.file_digest(crlf) == versioning.file_digest(lf)
+
+
+def test_line_endings_still_matter_for_binary_artifacts(tmp_path):
+    # Normalising inside a .keras or .safetensors file would corrupt the digest
+    # of weights that legitimately contain those bytes.
+    first, second = tmp_path / "a.keras", tmp_path / "b.keras"
+    first.write_bytes(b"\x00\r\n\x01")
+    second.write_bytes(b"\x00\n\x01")
+    assert versioning.file_digest(first) != versioning.file_digest(second)
+
+
+def test_text_content_changes_still_change_the_digest(tmp_path):
+    first, second = tmp_path / "a.json", tmp_path / "b.json"
+    first.write_bytes(b'{"temperature": 1.0}')
+    second.write_bytes(b'{"temperature": 2.0}')
+    assert versioning.file_digest(first) != versioning.file_digest(second)
+
+
 # --- versions --------------------------------------------------------------
 
 

@@ -29,8 +29,20 @@ DIGEST_LENGTH = 16
 CHUNK_SIZE = 1024 * 1024
 
 
+# Artifacts git treats as text, which therefore arrive with CRLF on Windows and
+# LF elsewhere. Their line endings are normalised before hashing: without that,
+# the same committed model gets a different version on a Windows checkout than
+# on a Linux one, which is precisely the ambiguity a version is meant to remove.
+TEXT_SUFFIXES = {".json", ".txt"}
+
+
 def _digest_file(path: Path) -> str:
     digest = hashlib.sha256()
+
+    if path.suffix.lower() in TEXT_SUFFIXES:
+        digest.update(path.read_bytes().replace(b"\r\n", b"\n"))
+        return digest.hexdigest()
+
     with open(path, "rb") as handle:
         while chunk := handle.read(CHUNK_SIZE):
             digest.update(chunk)
