@@ -170,6 +170,22 @@ def example_count(report: dict, split: str):
     return sizes.get(split, dataset.get("size", "-"))
 
 
+def _ranking_score(report: dict) -> tuple:
+    """Sort key placing the best model first.
+
+    Ranked on the evaluated split where there is one, so the table opens with
+    the model that actually scored highest rather than with whichever model's
+    key sorts first alphabetically.
+    """
+    metrics = report.get("metrics") or {}
+    evaluated = (report.get("evaluation") or {}).get("split")
+    if evaluated and evaluated in metrics:
+        best = metrics[evaluated].get("f1_macro", 0.0)
+    else:
+        best = max((m.get("f1_macro", 0.0) for m in metrics.values()), default=0.0)
+    return (-best, report.get("model", ""))
+
+
 def markdown_table(reports: list[dict]) -> str:
     """Render reports as a Markdown table, ready to paste into the README."""
     if not reports:
@@ -183,7 +199,7 @@ def markdown_table(reports: list[dict]) -> str:
     divider = "|" + "---|" * (5 + len(LABELS))
     rows = [header, divider]
 
-    for report in sorted(reports, key=lambda item: item["model"]):
+    for report in sorted(reports, key=_ranking_score):
         for split, metrics in report["metrics"].items():
             per_class = metrics.get("f1_per_class", [])
             rows.append(

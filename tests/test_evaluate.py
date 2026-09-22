@@ -163,11 +163,16 @@ def test_table_renders_one_row_per_split(sample_report):
     assert "Logistic Regression" in rows[2]
 
 
-def test_table_sorts_by_model(sample_report):
-    other = dict(sample_report, model="gru", display_name="Bi-GRU")
-    rows = evaluate.markdown_table([sample_report, other]).splitlines()
-    assert "Bi-GRU" in rows[2]
-    assert "Logistic Regression" in rows[3]
+def test_table_puts_the_best_model_first(sample_report):
+    weaker = dict(
+        sample_report,
+        model="gru",
+        display_name="Bi-GRU",
+        metrics={"test": compute_metrics([0, 1, 2], [0, 0, 0])},
+    )
+    rows = evaluate.markdown_table([weaker, sample_report]).splitlines()
+    assert "Logistic Regression" in rows[2]
+    assert "Bi-GRU" in rows[3]
 
 
 def test_table_formats_scores_to_four_decimals(sample_report):
