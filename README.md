@@ -126,6 +126,23 @@ per model along with a digest for each file.
 
 Interactive docs are at `/docs`.
 
+### Logging
+
+The service logs one JSON object per line. Every request is assigned an
+`X-Request-ID` (an inbound one is honoured if it is safe to log) which is
+echoed in the response and attached to every log line produced while serving it,
+so a prediction can be traced from the access line to the model version that
+produced it:
+
+```json
+{"timestamp": "2026-09-22T10:17:20.105Z", "level": "INFO", "logger": "api.access",
+ "message": "request", "request_id": "ad56b98b50aa", "method": "POST",
+ "path": "/predict", "status": 200, "duration_ms": 1.59}
+```
+
+**The text being classified is never logged** - only its length. Set
+`LOG_FORMAT=plain` for readable local output and `LOG_LEVEL` to change verbosity.
+
 Confidence is **calibrated**, not a raw softmax - see [Calibration](#calibration).
 
 ### Streamlit app
@@ -200,7 +217,7 @@ what keeps it inside 4 GB of VRAM.
 ## Tests and quality
 
 ```bash
-make test         # 186 tests
+make test         # 208 tests
 make lint         # ruff + black
 ```
 
@@ -213,7 +230,7 @@ from the image and a 503 when no artifacts are present.
 
 ```
 .
-├── api/                  # FastAPI service
+├── api/                  # FastAPI service and structured logging
 ├── app/                  # Streamlit UI
 ├── models/               # Small artifacts; large weights fetched from the Hub
 ├── reports/metrics/      # Generated metrics records

@@ -23,6 +23,7 @@ import logging
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
 
+from api.observability import configure_logging, request_id_middleware
 from src.config import MODEL_KEYS
 from src.inference.predictor import (
     ModelUnavailableError,
@@ -36,6 +37,8 @@ LOGGER = logging.getLogger(__name__)
 
 MAX_BATCH_SIZE = 256
 
+configure_logging()
+
 app = FastAPI(
     title="Sentiment Analysis API",
     description=(
@@ -43,6 +46,10 @@ app = FastAPI(
     ),
     version="1.0.0",
 )
+
+# Correlates every log line for a request and echoes X-Request-ID back, so a
+# caller can quote an id when reporting a problem.
+app.middleware("http")(request_id_middleware)
 
 
 class PredictRequest(BaseModel):
@@ -133,16 +140,36 @@ def models() -> dict:
 def predict(request: PredictRequest) -> PredictResponse:
     """Classify a single text."""
     predictor = _load_or_503(request.model)
-    return PredictResponse.from_prediction(predictor.predict(request.text))
+    prediction = predictor.predict(request.text)
+
+    # The text itself is never logged - see api/observability.py.
+    LOGGER.info(
+        "prediction",
+        extra={
+            "model": prediction.model,
+            "model_version": prediction.version,
+            "label": prediction.label,
+            "confidence": round(prediction.confidence, 4),
+            "text_length": len(request.text),
+        },
+    )
+    return PredictResponse.from_prediction(prediction)
 
 
 @app.post("/predict/batch", response_model=BatchPredictResponse)
 def predict_batch(request: BatchPredictRequest) -> BatchPredictResponse:
     """Classify up to MAX_BATCH_SIZE texts in one call."""
     predictor = _load_or_503(request.model)
+    predictions = [predictor.predict(text) for text in request.texts]
+
+    LOGGER.info(
+        "batch prediction",
+        extra={
+            "model": request.model,
+            "model_version": predictor.version,
+            "batch_size": len(predictions),
+        },
+    )
     return BatchPredictResponse(
-        predictions=[
-            PredictResponse.from_prediction(predictor.predict(text))
-            for text in request.texts
-        ]
+        predictions=[PredictResponse.from_prediction(p) for p in predictions]
     )
