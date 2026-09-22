@@ -1,13 +1,17 @@
 # src/training/train_lr.py
 
+from dataclasses import asdict
+
 import joblib
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
 
-from src.config import LR_CONFIG, LR_DIR
-from src.utils.metrics import compute_metrics
+from src.config import LR_CONFIG, LR_DIR, METRICS_DIR
+from src.data import describe
+from src.utils.io import save_json
+from src.utils.metrics import build_report, compute_metrics
 from src.utils.preprocessing import preprocess_tweet
 
 OUT_DIR = LR_DIR
@@ -79,15 +83,33 @@ def main():
     best = gs.best_estimator_
     print("Best params:", gs.best_params_)
 
-    val_preds = best.predict(val_df["text"])
-    test_preds = best.predict(test_df["text"])
-
-    print("Validation:", compute_metrics(val_df["label"], val_preds))
-    print("Test:", compute_metrics(test_df["label"], test_preds))
+    metrics = {
+        "validation": compute_metrics(val_df["label"], best.predict(val_df["text"])),
+        "test": compute_metrics(test_df["label"], best.predict(test_df["text"])),
+    }
+    for split, scores in metrics.items():
+        print(
+            f"{split}: accuracy={scores['accuracy']:.4f} "
+            f"macro F1={scores['f1_macro']:.4f}"
+        )
 
     model_path = OUT_DIR / "pipeline.joblib"
     joblib.dump(best, model_path)
     print(f"Saved LR pipeline to: {model_path}")
+
+    # Metrics are written, not just printed. Printing them and throwing them
+    # away is how the documented numbers ended up unverifiable.
+    report = build_report(
+        model="lr",
+        hyperparameters=asdict(LR_CONFIG),
+        dataset=describe(ds),
+        metrics=metrics,
+    )
+    report_path = METRICS_DIR / "lr.json"
+    save_json(report, report_path)
+    print(f"Wrote metrics: {report_path}")
+
+    return report
 
 
 if __name__ == "__main__":
