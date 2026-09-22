@@ -5,10 +5,27 @@ from keras.models import Sequential
 from src.config import NUM_LABELS, SEQUENCE_CONFIG
 
 
+def _embedding(vocab_size, embed_dim, matrix):
+    """Embedding layer, optionally initialised from pretrained vectors.
+
+    Pretrained weights stay trainable: the vectors are a starting point,
+    and freezing them would stop the model adapting to this dataset.
+    """
+    if matrix is None:
+        return Embedding(input_dim=vocab_size, output_dim=embed_dim)
+    return Embedding(
+        input_dim=vocab_size,
+        output_dim=embed_dim,
+        embeddings_initializer=keras.initializers.Constant(matrix),
+        trainable=True,
+    )
+
+
 def build_lstm(
     vocab_size,
     max_len=SEQUENCE_CONFIG.max_len,
     embed_dim=SEQUENCE_CONFIG.embed_dim,
+    embedding_matrix=None,
 ) -> keras.Model:
     """Bi-LSTM classifier over a learned embedding.
 
@@ -19,7 +36,7 @@ def build_lstm(
     model = Sequential(
         [
             Input(shape=(max_len,), dtype="int32"),
-            Embedding(input_dim=vocab_size, output_dim=embed_dim),
+            _embedding(vocab_size, embed_dim, embedding_matrix),
             Bidirectional(LSTM(128, return_sequences=True)),
             Dropout(0.35),
             Bidirectional(LSTM(64)),

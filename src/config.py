@@ -173,6 +173,9 @@ class SequenceConfig:
     # models accuracy and macro F1. See MODEL_CARD.md. Set to "balanced" to
     # train weighted anyway; the training run records which was used.
     class_weight: str | None = None
+    # Initialise the embedding from GloVe Twitter vectors instead of random
+    # noise. Set to None to train embeddings from scratch.
+    pretrained_embeddings: str | None = "glove-twitter-100"
 
 
 @dataclass(frozen=True)

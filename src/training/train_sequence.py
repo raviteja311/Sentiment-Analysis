@@ -126,10 +126,19 @@ def train_sequence_model(
         config.embed_dim,
         config.max_len,
     )
+    embedding_matrix, coverage = None, None
+    if config.pretrained_embeddings:
+        from src.embeddings import build_embedding_matrix
+
+        embedding_matrix, coverage = build_embedding_matrix(
+            tokenizer.word_index, vocab_size, dim=config.embed_dim
+        )
+
     model = build_fn(
         vocab_size,
         max_len=config.max_len,
         embed_dim=config.embed_dim,
+        embedding_matrix=embedding_matrix,
     )
     model.summary(print_fn=LOGGER.info)
 
@@ -188,9 +197,13 @@ def train_sequence_model(
             metrics[name]["f1_macro"],
         )
 
+    hyperparameters = asdict(config)
+    if coverage is not None:
+        hyperparameters["pretrained_embedding_coverage"] = round(coverage, 4)
+
     report = build_report(
         model=key,
-        hyperparameters=asdict(config),
+        hyperparameters=hyperparameters,
         dataset=describe(dataset),
         metrics=metrics,
     )

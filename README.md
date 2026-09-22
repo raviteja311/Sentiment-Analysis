@@ -15,16 +15,18 @@ table by hand**, regenerate it.
 |---|---|---|---|---|---|---|---|
 | Twitter-RoBERTa | validation | 2000 | 0.7925 | 0.7815 | 0.7363 | 0.7638 | 0.8443 |
 | Twitter-RoBERTa | test | 12284 | 0.7077 | 0.7084 | 0.7335 | 0.6920 | 0.6997 |
-| Bi-GRU | validation | 2000 | 0.6495 | 0.6326 | 0.5493 | 0.6592 | 0.6891 |
-| Bi-GRU | test | 12284 | 0.6175 | 0.5952 | 0.5980 | 0.6573 | 0.5303 |
-| Bi-LSTM | validation | 2000 | 0.6520 | 0.6358 | 0.5642 | 0.6688 | 0.6742 |
-| Bi-LSTM | test | 12284 | 0.6168 | 0.5921 | 0.5942 | 0.6598 | 0.5223 |
+| Bi-GRU | validation | 2000 | 0.6690 | 0.6504 | 0.5736 | 0.6818 | 0.6958 |
+| Bi-GRU | test | 12284 | 0.6424 | 0.6268 | 0.6246 | 0.6736 | 0.5821 |
+| Bi-LSTM | validation | 2000 | 0.6740 | 0.6521 | 0.5752 | 0.6964 | 0.6847 |
+| Bi-LSTM | test | 12284 | 0.6386 | 0.6185 | 0.5999 | 0.6807 | 0.5748 |
 | Logistic Regression | validation | 2000 | 0.6560 | 0.6360 | 0.5364 | 0.6512 | 0.7204 |
 | Logistic Regression | test | 12284 | 0.5827 | 0.5795 | 0.6006 | 0.5786 | 0.5592 |
 
 The transformer leads by a clear margin. The two recurrent models are within
 half a point of each other - treat them as equivalent - and beat the linear
-baseline by roughly 3.5 points of accuracy. See [MODEL_CARD.md](MODEL_CARD.md)
+baseline by about 6 points of accuracy. Both initialise their embeddings from
+GloVe Twitter vectors (93% vocabulary coverage), which is worth roughly
++0.03 macro F1 and +0.05 positive-class F1 over learning them from scratch. See [MODEL_CARD.md](MODEL_CARD.md)
 for limitations and intended use.
 
 Each record in `reports/metrics/` stores the hyperparameters, the split sizes and
@@ -36,8 +38,8 @@ to what produced it.
 | Key | Model | Framework | Artifact |
 |---|---|---|---|
 | `lr` | TF-IDF + Logistic Regression | scikit-learn | `models/lr/pipeline.joblib` |
-| `lstm` | Bi-LSTM over a learned embedding | Keras 3 | `models/lstm/model_final.keras` |
-| `gru` | Bi-GRU over a learned embedding | Keras 3 | `models/gru/model_final.keras` |
+| `lstm` | Bi-LSTM over GloVe Twitter embeddings | Keras 3 | `models/lstm/model_final.keras` |
+| `gru` | Bi-GRU over GloVe Twitter embeddings | Keras 3 | `models/gru/model_final.keras` |
 | `roberta` | Fine-tuned `cardiffnlp/twitter-roberta-base-sentiment` | Transformers | `models/roberta/` |
 
 The transformer was keyed as `bert` until the name was corrected to match the
@@ -211,8 +213,10 @@ Fitted on validation, measured on test. Temperature scaling is monotonic, so no
 prediction changes and the results table above is unaffected - only the spread
 of the probabilities moves.
 
-The temperature is constrained to at least 1.0, so calibration can only soften
-confidence. Unconstrained, the linear baseline fits 0.94 on validation and gets
+Two models are left uncalibrated. The GRU is already well calibrated after
+retraining (ECE 0.0220) and its candidate temperature lost ground on held-out
+validation folds. The temperature is also constrained to at least 1.0, so
+calibration can only soften confidence. Unconstrained, the linear baseline fits 0.94 on validation and gets
 *worse* on test: it is underconfident on validation (61.1% confidence, 65.6%
 accuracy) and overconfident on test (58.3% accuracy), because validation is the
 easier split. It is therefore left uncalibrated rather than sharpened.
@@ -265,6 +269,7 @@ from the image and a 503 when no artifacts are present.
 │   ├── calibration.py    # temperature scaling
 │   ├── config.py         # labels, paths, hyperparameters
 │   ├── data.py           # dataset loading
+│   ├── embeddings.py     # pretrained GloVe vectors
 │   ├── evaluate.py       # evaluation and the results table
 │   ├── inference/        # shared predictor and model versioning
 │   ├── models/           # Keras architectures

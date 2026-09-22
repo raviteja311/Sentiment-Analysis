@@ -1,24 +1,24 @@
 {
   "model": "lstm",
-  "temperature": 1.084539782067652,
-  "candidate_temperature": 1.084539782067652,
+  "temperature": 1.1646858779525295,
+  "candidate_temperature": 1.1646858779525295,
   "adopted": true,
-  "held_out_ece_gain": 0.00039617265760900564,
+  "held_out_ece_gain": 0.009893850356340408,
   "method": "temperature scaling",
   "fitted_on": "validation",
   "measured_on": "test",
   "before": {
-    "ece": 0.030234118658492477,
-    "nll": 0.8223837018013,
-    "brier": 0.4989151656627655,
-    "mean_confidence": 0.6470527648925781,
-    "accuracy": 0.6168186258547704
+    "ece": 0.04655140445718389,
+    "nll": 0.7865180373191833,
+    "brier": 0.47659486532211304,
+    "mean_confidence": 0.6848525404930115,
+    "accuracy": 0.6386356235753826
   },
   "after": {
-    "ece": 0.012623209332806477,
-    "nll": 0.8210062980651855,
-    "brier": 0.4975108206272125,
-    "mean_confidence": 0.6291278004646301,
-    "accuracy": 0.6168186258547704
+    "ece": 0.014706669175752935,
+    "nll": 0.7799695730209351,
+    "brier": 0.4730285406112671,
+    "mean_confidence": 0.6523393392562866,
+    "accuracy": 0.6386356235753826
   }
 }
