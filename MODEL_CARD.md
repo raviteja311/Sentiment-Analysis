@@ -106,10 +106,14 @@ worst-scoring one. Positive is, for all three non-transformer models, despite
 having two and a half times as many training examples. Adding class weights to
 the neural models is worth trying, but it is not the whole story.
 
-**Confidence scores are uncalibrated.** They are raw softmax or
-`predict_proba` outputs. The transformer routinely returns >0.99 on short
-unambiguous inputs, which reflects its training objective, not a 99% chance of
-being right. Do not threshold on these without calibrating first.
+**Confidence scores are calibrated, within limits.** They were raw softmax
+outputs; the transformer averaged 0.917 confidence at 70.8% accuracy. Temperature
+scaling, fitted on validation and measured on test, cut its expected calibration
+error from 0.2092 to 0.0925, and the recurrent models from 0.030/0.038 to
+0.013/0.022. A residual ECE near 0.09 on the transformer is still not nothing:
+read a 0.95 as "usually right", not as 95 correct calls in 100. The linear
+baseline is deliberately left uncalibrated - see the README - because the only
+temperature that helps it on validation harms it on test.
 
 **Test-set scores are the honest ones.** An earlier version of this project's
 documentation claimed 85-95% accuracy across these models. Those figures

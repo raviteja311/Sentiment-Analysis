@@ -1,0 +1,24 @@
+{
+  "model": "bert",
+  "temperature": 1.9960193653888574,
+  "candidate_temperature": 1.9960193653888574,
+  "adopted": true,
+  "held_out_ece_gain": 0.09429149675369267,
+  "method": "temperature scaling",
+  "fitted_on": "validation",
+  "measured_on": "test",
+  "before": {
+    "ece": 0.2091918843833215,
+    "nll": 0.9969695210456848,
+    "brier": 0.48642686009407043,
+    "mean_confidence": 0.9168407320976257,
+    "accuracy": 0.7077499185932921
+  },
+  "after": {
+    "ece": 0.09251747968161159,
+    "nll": 0.6891205310821533,
+    "brier": 0.41705554723739624,
+    "mean_confidence": 0.8000730872154236,
+    "accuracy": 0.7077499185932921
+  }
+}

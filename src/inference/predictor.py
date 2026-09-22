@@ -161,11 +161,19 @@ class Predictor:
     key: str
 
     def __init__(self, key: str) -> None:
+        from src.calibration import load_temperature
+
         self.key = key
         self.display_name = MODEL_DISPLAY_NAMES[key]
         reason = check_artifacts(key)
         if reason is not None:
             raise ModelUnavailableError(reason)
+
+        # Raw softmax outputs are overconfident. If a temperature has been
+        # fitted (`make calibrate`) it is applied here, so every consumer -
+        # API, UI, evaluation - sees the same calibrated numbers. Temperature
+        # scaling is monotonic, so this never changes a predicted label.
+        self.temperature = load_temperature(key) or 1.0
 
     def predict_proba(self, texts: Sequence[str]) -> np.ndarray:
         """Class probabilities, shape ``(len(texts), NUM_LABELS)``."""
@@ -178,6 +186,11 @@ class Predictor:
                 f"{self.key} returned probabilities of shape {probs.shape}, "
                 f"expected {(len(texts), NUM_LABELS)}."
             )
+
+        if self.temperature != 1.0:
+            from src.calibration import apply_temperature
+
+            probs = apply_temperature(probs, self.temperature).astype(np.float32)
         return probs
 
     def predict(self, text: str) -> Prediction:

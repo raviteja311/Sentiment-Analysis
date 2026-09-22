@@ -113,12 +113,14 @@ curl -X POST localhost:8000/predict \
 {
   "model": "bert",
   "label": "positive",
-  "confidence": 0.9984,
-  "probabilities": {"negative": 0.0005, "neutral": 0.0011, "positive": 0.9984}
+  "confidence": 0.9474,
+  "probabilities": {"negative": 0.0210, "neutral": 0.0315, "positive": 0.9474}
 }
 ```
 
 Interactive docs are at `/docs`.
+
+Confidence is **calibrated**, not a raw softmax - see [Calibration](#calibration).
 
 ### Streamlit app
 
@@ -142,6 +144,31 @@ time as docker-compose does:
 docker build --target cpu --build-arg FETCH_MODELS="lstm gru bert" .
 ```
 
+## Calibration
+
+Raw softmax outputs are overconfident: before calibration the transformer
+averaged 0.917 confidence while being right 70.8% of the time. `make calibrate`
+fits a temperature per model on the validation split and stores it in
+`models/<key>/calibration.json`; the predictor applies it, so the API, the UI
+and the evaluation all report the same calibrated numbers.
+
+| Model | Temperature | ECE before | ECE after | Mean confidence before | after | Accuracy |
+|---|---|---|---|---|---|---|
+| bert | 2.00 | 0.2092 | 0.0925 | 0.917 | 0.800 | 0.7077 |
+| gru | 1.08 | 0.0381 | 0.0219 | 0.656 | 0.638 | 0.6175 |
+| lstm | 1.08 | 0.0302 | 0.0126 | 0.647 | 0.629 | 0.6168 |
+| lr | 1.00 (not adopted) | 0.0428 | 0.0428 | 0.611 | 0.611 | 0.5827 |
+
+Fitted on validation, measured on test. Temperature scaling is monotonic, so no
+prediction changes and the results table above is unaffected - only the spread
+of the probabilities moves.
+
+The temperature is constrained to at least 1.0, so calibration can only soften
+confidence. Unconstrained, the linear baseline fits 0.94 on validation and gets
+*worse* on test: it is underconfident on validation (61.1% confidence, 65.6%
+accuracy) and overconfident on test (58.3% accuracy), because validation is the
+easier split. It is therefore left uncalibrated rather than sharpened.
+
 ## Retraining
 
 ```bash
@@ -151,6 +178,7 @@ make train-lstm      # ~6 min, CPU
 make train-gru       # ~6 min, CPU
 make train-bert      # ~2h15m on a GTX 1650 with mixed precision
 make evaluate        # scores every available model, regenerates the table above
+make calibrate       # refits temperature scaling after retraining
 ```
 
 Training writes both the artifact and a metrics record to `reports/metrics/`.
@@ -166,7 +194,7 @@ what keeps it inside 4 GB of VRAM.
 ## Tests and quality
 
 ```bash
-make test         # 131 tests
+make test         # 159 tests
 make lint         # ruff + black
 ```
 
@@ -186,6 +214,7 @@ from the image and a 503 when no artifacts are present.
 ├── requirements/         # base, inference-cpu, train, dev
 ├── src/
 │   ├── artifacts.py      # fetches the large weights
+│   ├── calibration.py    # temperature scaling
 │   ├── config.py         # labels, paths, hyperparameters
 │   ├── data.py           # dataset loading
 │   ├── evaluate.py       # evaluation and the results table
