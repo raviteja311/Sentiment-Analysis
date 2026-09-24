@@ -35,8 +35,8 @@ ROBERTA_DIR = MODELS_DIR / "roberta"
 # ---------------------------------------------------------------------------
 
 # Index order is fixed by the tweet_eval sentiment dataset and by every trained
-# artifact under models/. Do not reorder it. models/bert/config.json carries the
-# same mapping (it once held HuggingFace's LABEL_0/1/2 placeholders); a test
+# artifact under models/. Do not reorder it. models/roberta/config.json carries
+# the same mapping (it once held HuggingFace's LABEL_0/1/2 placeholders); a test
 # asserts the two agree, so a change here without a retrain will fail the suite.
 LABELS: tuple[str, ...] = ("negative", "neutral", "positive")
 NUM_LABELS = len(LABELS)

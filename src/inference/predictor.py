@@ -208,9 +208,19 @@ class Predictor:
             probs = apply_temperature(probs, self.temperature).astype(np.float32)
         return probs
 
+    def predict_many(self, texts: Sequence[str]) -> list[Prediction]:
+        """Classify several texts in one pass.
+
+        One batched forward pass rather than one per text: for the transformer
+        that is the difference between batching on the GPU and serialising.
+        """
+        return [self._to_prediction(row) for row in self.predict_proba(texts)]
+
     def predict(self, text: str) -> Prediction:
         """Classify a single text."""
-        probs = self.predict_proba([text])[0]
+        return self._to_prediction(self.predict_proba([text])[0])
+
+    def _to_prediction(self, probs: np.ndarray) -> Prediction:
         index = int(np.argmax(probs))
         return Prediction(
             model=self.key,

@@ -19,6 +19,7 @@ healthy quickly and a broken artifact cannot prevent the process from starting.
 from __future__ import annotations
 
 import logging
+from typing import Annotated
 
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
@@ -50,10 +51,6 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Correlates every log line for a request and echoes X-Request-ID back, so a
-# caller can quote an id when reporting a problem.
-app.middleware("http")(request_id_middleware)
-
 # Per-IP rate limiting. A backstop for a single process, not a substitute for
 # limiting at the edge - see api/rate_limit.py.
 limiter = build_limiter()
@@ -61,9 +58,19 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
 
+# Registered last, so it is the OUTERMOST middleware: Starlette runs the most
+# recently added first. A throttled request must still get an X-Request-ID and
+# an access log line - otherwise the requests most worth investigating are the
+# ones that leave no trace.
+app.middleware("http")(request_id_middleware)
+
+
+# Shared so single and batch requests cannot drift apart in what they accept.
+TEXT_FIELD = Field(min_length=1, max_length=5_000)
+
 
 class PredictRequest(BaseModel):
-    text: str = Field(min_length=1, max_length=5_000)
+    text: str = TEXT_FIELD
     model: str = Field(
         default="lr",
         description=(
@@ -84,7 +91,11 @@ class PredictRequest(BaseModel):
 
 
 class BatchPredictRequest(BaseModel):
-    texts: list[str] = Field(min_length=1, max_length=MAX_BATCH_SIZE)
+    # Annotated applies the length limits to each item; putting them on the
+    # list alone would bound how many texts arrive, not how long each is.
+    texts: list[Annotated[str, TEXT_FIELD]] = Field(
+        min_length=1, max_length=MAX_BATCH_SIZE
+    )
     model: str = Field(default="lr")
 
     @field_validator("model")
@@ -147,8 +158,8 @@ def ready() -> dict:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
-                "No usable model artifacts. Run `git lfs install && git lfs pull`, "
-                "or train a model with `python -m src.training.train_lr`."
+                "No usable model artifacts. Run `make fetch-weights` to download "
+                "them, or train a model with `python -m src.training.train_lr`."
             ),
         )
     return {"status": "ready", "models_available": models}
@@ -185,7 +196,7 @@ def predict(request: PredictRequest) -> PredictResponse:
 def predict_batch(request: BatchPredictRequest) -> BatchPredictResponse:
     """Classify up to MAX_BATCH_SIZE texts in one call."""
     predictor = _load_or_503(request.model)
-    predictions = [predictor.predict(text) for text in request.texts]
+    predictions = predictor.predict_many(request.texts)
 
     LOGGER.info(
         "batch prediction",

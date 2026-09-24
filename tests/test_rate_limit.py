@@ -17,13 +17,17 @@ from fastapi.testclient import TestClient  # noqa: E402
 from slowapi.errors import RateLimitExceeded  # noqa: E402
 from slowapi.middleware import SlowAPIMiddleware  # noqa: E402
 
+from api.observability import REQUEST_ID_HEADER, request_id_middleware  # noqa: E402
+
 
 def build_app(limit: str, **env) -> TestClient:
-    """A minimal app wired exactly like api/main.py."""
+    """A minimal app wired exactly like api/main.py, middleware order included."""
     app = FastAPI()
     app.state.limiter = rate_limit.build_limiter()
     app.add_exception_handler(RateLimitExceeded, rate_limit.rate_limit_exceeded_handler)
     app.add_middleware(SlowAPIMiddleware)
+    # Added last, so it is outermost - see the ordering test below.
+    app.middleware("http")(request_id_middleware)
 
     @app.get("/limited")
     def limited():
@@ -171,3 +175,29 @@ def test_retry_after_falls_back_when_the_window_is_unreadable():
         limit = type("L", (), {"limit": object()})()
 
     assert rate_limit.retry_after_seconds(Odd()) == 60
+
+
+# --- a throttled request is still traceable --------------------------------
+
+
+def test_a_throttled_response_still_carries_a_request_id(limited_client):
+    for _ in range(4):
+        response = limited_client.get("/limited")
+    assert response.status_code == 429
+    # The rate limiter used to sit outside the request-id middleware, so the
+    # requests most worth investigating were the ones that left no trace.
+    assert response.headers[REQUEST_ID_HEADER]
+
+
+def test_the_service_puts_request_ids_outside_rate_limiting():
+    """Order matters: Starlette runs the most recently added middleware first."""
+    from slowapi.middleware import SlowAPIMiddleware as SlowAPI
+
+    import api.main as api_main
+
+    classes = [m.cls for m in api_main.app.user_middleware]
+    names = [c.__name__ for c in classes]
+    assert SlowAPI in classes
+    # The request-id middleware is registered via app.middleware("http"), which
+    # Starlette wraps in BaseHTTPMiddleware; it must come first (outermost).
+    assert names.index("BaseHTTPMiddleware") < names.index("SlowAPIMiddleware")

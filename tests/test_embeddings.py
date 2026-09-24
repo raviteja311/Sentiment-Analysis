@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from src import embeddings
+from src.config import LSTM_DIR
 
 
 @pytest.fixture
@@ -57,11 +58,25 @@ def test_words_beyond_the_cap_are_ignored(fake_vectors):
     assert coverage == pytest.approx(1.0)
 
 
-def test_the_preprocessing_placeholders_are_covered(fake_vectors):
-    # GloVe Twitter has <user> and <url>; our preprocessing emits them, which is
-    # why these vectors were chosen over the Wikipedia-trained ones.
-    _, coverage = embeddings.build_embedding_matrix({"<user>": 1}, vocab_size=2, dim=4)
-    assert coverage == pytest.approx(1.0)
+@pytest.mark.skipif(
+    not (LSTM_DIR / "tokenizer.joblib").is_file(), reason="tokenizer not present"
+)
+def test_the_tokenizer_strips_the_placeholder_brackets():
+    """The vocabulary holds `user`, not `<user>`.
+
+    preprocess_tweet emits `<user>` and `<url>`, and GloVe Twitter has tokens by
+    those names - but the Keras tokenizer's default filters include `<` and `>`,
+    so the brackets never reach the embedding lookup. An earlier version of this
+    test hand-built a vocabulary containing `<user>` and therefore passed while
+    the docstring claiming the match was wrong.
+    """
+    import joblib
+
+    word_index = joblib.load(LSTM_DIR / "tokenizer.joblib").word_index
+    assert "user" in word_index
+    assert "<user>" not in word_index
+    assert "url" in word_index
+    assert "<url>" not in word_index
 
 
 def test_matrix_is_float32(fake_vectors):

@@ -26,8 +26,8 @@ The transformer leads by a clear margin. The two recurrent models are within
 half a point of each other - treat them as equivalent - and beat the linear
 baseline by about 6 points of accuracy. Both initialise their embeddings from
 GloVe Twitter vectors (93% vocabulary coverage), which is worth roughly
-+0.03 macro F1 and +0.05 positive-class F1 over learning them from scratch. See [MODEL_CARD.md](MODEL_CARD.md)
-for limitations and intended use.
++0.03 macro F1 and +0.05 positive-class F1 over learning them from scratch.
+See [MODEL_CARD.md](MODEL_CARD.md) for limitations and intended use.
 
 Each record in `reports/metrics/` stores the hyperparameters, the split sizes and
 the class distribution alongside the scores, so any number above can be traced
@@ -128,6 +128,9 @@ weights, the tokenizer and the calibration file - so a logged prediction stays
 traceable after a retrain or a re-fetch. `GET /models` reports the same version
 per model along with a digest for each file.
 
+`confidence` is **calibrated**, not a raw softmax - see
+[Calibration](#calibration).
+
 Interactive docs are at `/docs`.
 
 ### Logging
@@ -170,8 +173,6 @@ themselves and bypasses the limit.
 in an ingress or API gateway, where it applies before a request reaches any
 application process.
 
-Confidence is **calibrated**, not a raw softmax - see [Calibration](#calibration).
-
 ### Streamlit app
 
 ```bash
@@ -197,7 +198,9 @@ docker build --target cpu --build-arg FETCH_MODELS="lstm gru roberta" .
 ## Calibration
 
 Raw softmax outputs are overconfident: before calibration the transformer
-averaged 0.917 confidence while being right 70.8% of the time. `make calibrate`
+averaged 0.917 confidence while being right 70.8% of the time. Two models are
+left alone - the GRU because it is already well calibrated after retraining
+(ECE 0.0220), and the linear baseline for the reason below. `make calibrate`
 fits a temperature per model on the validation split and stores it in
 `models/<key>/calibration.json`; the predictor applies it, so the API, the UI
 and the evaluation all report the same calibrated numbers.
@@ -205,8 +208,8 @@ and the evaluation all report the same calibrated numbers.
 | Model | Temperature | ECE before | ECE after | Mean confidence before | after | Accuracy |
 |---|---|---|---|---|---|---|
 | roberta | 2.00 | 0.2092 | 0.0925 | 0.917 | 0.800 | 0.7077 |
-| gru | 1.08 | 0.0381 | 0.0219 | 0.656 | 0.638 | 0.6175 |
-| lstm | 1.08 | 0.0302 | 0.0126 | 0.647 | 0.629 | 0.6168 |
+| lstm | 1.16 | 0.0466 | 0.0147 | 0.685 | 0.652 | 0.6386 |
+| gru | 1.00 (not adopted) | 0.0220 | 0.0220 | 0.661 | 0.661 | 0.6424 |
 | lr | 1.00 (not adopted) | 0.0428 | 0.0428 | 0.611 | 0.611 | 0.5827 |
 
 Fitted on validation, measured on test. Temperature scaling is monotonic, so no
@@ -246,7 +249,7 @@ what keeps it inside 4 GB of VRAM.
 ## Tests and quality
 
 ```bash
-make test         # 240 tests
+make test         # 257 tests
 make lint         # ruff + black
 ```
 

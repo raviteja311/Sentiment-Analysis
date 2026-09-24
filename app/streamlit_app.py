@@ -70,7 +70,7 @@ def main() -> None:
 
     if choice is None:
         st.error(
-            "No model artifacts are usable. Run `git lfs install && git lfs pull` "
+            "No model artifacts are usable. Run `make fetch-weights` "
             "to download the weights, or train one with "
             "`python -m src.training.train_lr`."
         )

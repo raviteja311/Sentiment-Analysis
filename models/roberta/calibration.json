@@ -1,5 +1,5 @@
 {
-  "model": "bert",
+  "model": "roberta",
   "temperature": 1.9960193653888574,
   "candidate_temperature": 1.9960193653888574,
   "adopted": true,

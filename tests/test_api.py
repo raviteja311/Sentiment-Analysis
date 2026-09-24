@@ -43,7 +43,9 @@ def test_ready_is_503_when_nothing_can_be_served(api_client, monkeypatch):
     monkeypatch.setattr(api_main, "available_models", lambda: [])
     response = api_client.get("/ready")
     assert response.status_code == 503
-    assert "git lfs" in response.json()["detail"].lower()
+    # The message must name the command that actually fixes it; the weights
+    # moved off Git LFS to the Hub, so `git lfs pull` no longer would.
+    assert "make fetch-weights" in response.json()["detail"]
 
 
 # --- prediction ------------------------------------------------------------
@@ -165,3 +167,38 @@ def test_the_alias_works_on_the_batch_endpoint(api_client):
     )
     assert response.status_code == 200
     assert all(p["model"] == "roberta" for p in response.json()["predictions"])
+
+
+# --- batch requests validate their items -----------------------------------
+
+
+@pytest.mark.parametrize(
+    "texts",
+    [
+        ["fine", ""],  # an empty string is not a text
+        ["fine", "x" * 5_001],  # nor is one past the single-text limit
+        [""],
+    ],
+)
+def test_batch_items_are_validated_individually(api_client, texts):
+    # Length limits on the list alone bound how many texts arrive, not how long
+    # each one is, so these used to slip through.
+    response = api_client.post("/predict/batch", json={"texts": texts, "model": "lr"})
+    assert response.status_code == 422
+
+
+@requires_model("lr")
+def test_batch_runs_one_forward_pass_for_the_whole_batch(api_client, monkeypatch):
+    from src.inference.predictor import load_predictor
+
+    predictor = load_predictor("lr")
+    calls = []
+    original = predictor.predict_proba
+
+    def counting(texts):
+        calls.append(len(texts))
+        return original(texts)
+
+    monkeypatch.setattr(predictor, "predict_proba", counting)
+    api_client.post("/predict/batch", json={"texts": ["a", "b", "c", "d"], "model": "lr"})
+    assert calls == [4]

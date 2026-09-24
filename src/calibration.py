@@ -31,7 +31,7 @@ pipeline and the neural models alike.
 Fit and inspect with::
 
     make calibrate
-    python -m src.calibration --models bert
+    python -m src.calibration --models roberta
 """
 
 from __future__ import annotations
