@@ -69,9 +69,9 @@ jobs:
       - name: Build the CPU image
         run: docker build --target cpu -t sentiment-analysis-api:ci .
 
-      # models/lr/pipeline.joblib predates *.joblib being tracked by LFS, so it
-      # is a real blob and the LR model is genuinely servable here. The .keras
-      # and .safetensors weights are stubs, so those models are not.
+      # models/lr/pipeline.joblib is an ordinary git blob, so the LR model is
+      # genuinely servable here. The .keras and .safetensors weights are not in
+      # git at all (they are fetched from the Hub), so those models are not.
       - name: Start the container
         run: |
           docker run -d --name api -p 8000:8000 sentiment-analysis-api:ci

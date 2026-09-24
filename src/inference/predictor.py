@@ -348,11 +348,14 @@ def load_predictor(model: str) -> Predictor:
     if cached is not None:
         return cached
 
+    # Validate before taking a lock: _lock_for creates an entry per name, so an
+    # unknown name used to leave a lock behind in _LOAD_LOCKS for every call.
+    _require_known_model(model)
+
     with _lock_for(model):
         cached = _LOADED.get(model)
         if cached is not None:
             return cached
-        _require_known_model(model)
         predictor = _PREDICTORS[model]()
         _LOADED[model] = predictor
         return predictor

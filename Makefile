@@ -3,6 +3,7 @@ IMAGE ?= sentiment-analysis-api:local
 PORT ?= 8000
 
 .PHONY: help install install-dev install-train api ui test lint format \
+        fetch-weights publish-weights \
         train-lr train-lstm train-gru train-roberta evaluate calibrate \
         docker-build docker-run clean
 

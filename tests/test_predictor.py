@@ -99,6 +99,15 @@ def test_unknown_model_names_are_rejected(name):
         load_predictor(name)
 
 
+def test_unknown_model_names_leave_no_lock_behind():
+    # Validation used to happen inside the per-model lock, so every unknown name
+    # ever asked for created a permanent entry in the lock table.
+    before = set(predictor_module._LOAD_LOCKS)
+    with pytest.raises(KeyError):
+        load_predictor("definitely-not-a-model")
+    assert set(predictor_module._LOAD_LOCKS) == before
+
+
 # --- probability ordering --------------------------------------------------
 
 

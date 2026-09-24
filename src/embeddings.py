@@ -10,13 +10,13 @@ GloVe Twitter vectors are used rather than the more common Wikipedia ones
 because they were trained on tweets: the vocabulary covers slang, hashtag words
 and the register of the dataset, which Wikipedia-trained vectors do not.
 
-One caveat worth knowing. GloVe Twitter contains the placeholder tokens
-``<user>`` and ``<url>``, and :func:`src.utils.preprocessing.preprocess_tweet`
-emits exactly those - but the Keras tokenizer's default ``filters`` strip ``<``
-and ``>``, so the fitted vocabulary holds ``user`` and ``url`` instead. Those
-plain words do exist in GloVe, so they are covered, but the vectors carry the
-everyday meanings rather than the Twitter placeholder ones. Mapping them back
-would need a retrain to take effect and has not been measured.
+GloVe Twitter contains the placeholder tokens ``<user>`` and ``<url>``, and
+:func:`src.utils.preprocessing.preprocess_tweet` emits exactly those. The Keras
+tokenizer's *default* ``filters`` would strip ``<`` and ``>`` and leave the
+plain words ``user`` and ``url`` in the vocabulary - which carry their everyday
+meanings, not the placeholder ones. ``SequenceConfig.tokenizer_filters`` keeps
+the brackets so the fitted vocabulary matches GloVe's tokens; a test pins the
+committed tokenizers to that.
 
 The vectors are ~1 GB of text, downloaded on demand and cached by
 ``huggingface_hub``; only the rows matching the fitted tokenizer are kept, so

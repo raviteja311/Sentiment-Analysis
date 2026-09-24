@@ -130,14 +130,26 @@ def evaluate_models(
 ) -> list[dict]:
     """Evaluate several models, skipping any whose artifacts are unavailable."""
     requested = [resolve_model(m) for m in models] if models else available_models()
-    dataset = load_raw_dataset()
 
-    reports = []
+    # Filter before touching the dataset, as src.calibration does: on a fresh
+    # clone `--models lstm` is a normal thing to ask for, and downloading
+    # tweet_eval only to report that there is nothing to evaluate is wasted work.
+    usable = []
     for model in requested:
         reason = check_artifacts(model)
         if reason is not None:
             LOGGER.warning("Skipping %s: %s", model, reason)
             continue
+        usable.append(model)
+
+    if not usable:
+        LOGGER.warning("No usable models. Run `make fetch-weights` first.")
+        return []
+
+    dataset = load_raw_dataset()
+
+    reports = []
+    for model in usable:
         try:
             reports.append(
                 evaluate_model(model, split, batch_size=batch_size, dataset=dataset)

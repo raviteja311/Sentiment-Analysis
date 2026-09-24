@@ -3,8 +3,66 @@
 import numpy as np
 import pytest
 
-from src.config import LABELS, SEQUENCE_CONFIG
+from src.config import LABELS, LR_CONFIG, LR_DIR, SEED, SEQUENCE_CONFIG
 from src.training.train_sequence import compute_class_weights
+
+# --- the linear baseline is built from its config, all of it ----------------
+
+
+def _lr_pipeline():
+    pytest.importorskip("sklearn")
+    from src.training.train_lr import build_pipeline
+
+    return build_pipeline()
+
+
+def test_lr_pipeline_uses_the_configured_token_pattern():
+    # The record written next to the model is asdict(LR_CONFIG). A field that
+    # sits in the config but is never handed to the estimator makes that record
+    # describe a model that was not trained: exactly what happened when the
+    # token pattern was added to the config and the vectorizer kept its default.
+    tfidf = _lr_pipeline().named_steps["tfidf"]
+    assert tfidf.token_pattern == LR_CONFIG.token_pattern
+
+
+def test_lr_token_pattern_keeps_the_placeholders_whole():
+    tfidf = _lr_pipeline().named_steps["tfidf"]
+    tokens = tfidf.build_tokenizer()("<user> loved <url> and <email> today")
+    assert "<user>" in tokens
+    assert "<url>" in tokens
+    assert "<email>" in tokens
+    assert "user" not in tokens
+
+
+def test_lr_pipeline_is_seeded():
+    # saga shuffles; the model card says every training run is seeded.
+    assert _lr_pipeline().named_steps["clf"].random_state == SEED
+
+
+@pytest.mark.parametrize(
+    "field", ["max_features", "ngram_range", "min_df", "max_df", "token_pattern"]
+)
+def test_lr_vectorizer_matches_config(field):
+    tfidf = _lr_pipeline().named_steps["tfidf"]
+    assert getattr(tfidf, field) == getattr(LR_CONFIG, field)
+
+
+@pytest.mark.parametrize("field", ["C", "max_iter", "class_weight", "solver"])
+def test_lr_classifier_matches_config(field):
+    clf = _lr_pipeline().named_steps["clf"]
+    assert getattr(clf, field) == getattr(LR_CONFIG, field)
+
+
+@pytest.mark.skipif(
+    not (LR_DIR / "pipeline.joblib").is_file(), reason="LR pipeline not present"
+)
+def test_committed_lr_pipeline_was_trained_with_the_configured_token_pattern():
+    """The artifact on disk must agree with the config that claims to describe it."""
+    import joblib
+
+    tfidf = joblib.load(LR_DIR / "pipeline.joblib").named_steps["tfidf"]
+    assert tfidf.token_pattern == LR_CONFIG.token_pattern
+    assert "<user>" in tfidf.vocabulary_
 
 
 def test_balanced_weights_favour_the_rare_class():

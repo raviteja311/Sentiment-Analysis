@@ -3,22 +3,22 @@
   "temperature": 1.0,
   "candidate_temperature": 1.00000447893523,
   "adopted": false,
-  "held_out_ece_gain": -5.180537700731624e-07,
+  "held_out_ece_gain": -4.46349382395711e-07,
   "method": "temperature scaling",
   "fitted_on": "validation",
   "measured_on": "test",
   "before": {
-    "ece": 0.04276774171042308,
-    "nll": 0.88959801197052,
-    "brier": 0.5363684296607971,
-    "mean_confidence": 0.6114082336425781,
-    "accuracy": 0.5827092152393357
+    "ece": 0.04436445583867467,
+    "nll": 0.8917521238327026,
+    "brier": 0.5378362536430359,
+    "mean_confidence": 0.611074686050415,
+    "accuracy": 0.5805926408336047
   },
   "after": {
-    "ece": 0.04276774171042308,
-    "nll": 0.88959801197052,
-    "brier": 0.5363684296607971,
-    "mean_confidence": 0.6114082336425781,
-    "accuracy": 0.5827092152393357
+    "ece": 0.04436445583867467,
+    "nll": 0.8917521238327026,
+    "brier": 0.5378362536430359,
+    "mean_confidence": 0.611074686050415,
+    "accuracy": 0.5805926408336047
   }
 }

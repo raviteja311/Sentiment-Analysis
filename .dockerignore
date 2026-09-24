@@ -38,3 +38,7 @@ models/**/runs/
 models/**/*.keras
 models/roberta/model.safetensors
 models/roberta/training_args.bin
+
+# Download metadata huggingface_hub writes beside fetched files after a local
+# `make fetch-weights`. Useless inside the image.
+models/.cache/

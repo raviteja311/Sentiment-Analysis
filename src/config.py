@@ -12,6 +12,7 @@ cheap to import from tests, the API and the UI alike.
 from __future__ import annotations
 
 import os
+import string
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -153,6 +154,9 @@ class LRConfig:
     solver: str = "saga"
     max_iter: int = 2_000
     class_weight: str = "balanced"
+    # scikit-learn's default drops the angle brackets, merging <user>
+    # into the ordinary noun "user"; this keeps them whole.
+    token_pattern: str = r"(?u)<\w+>|\b\w\w+\b"
 
 
 @dataclass(frozen=True)
@@ -165,6 +169,11 @@ class SequenceConfig:
     batch_size: int = 64
     epochs: int = 4
     oov_token: str = "<OOV>"
+    # Keras's default filters include < and >, which silently turned the
+    # placeholders into the plain words "user" and "url" - so a mention was
+    # indistinguishable from the noun, and the GloVe Twitter vectors for
+    # <user>/<url> (a reason those vectors were chosen) were never used.
+    tokenizer_filters: str = string.punctuation.replace("<", "").replace(">", "") + "\t\n"
     early_stopping_patience: int = 2
     # Off by default, on evidence. The training split is 45% neutral and 16%
     # negative, and the linear baseline uses balanced weights, so weighting

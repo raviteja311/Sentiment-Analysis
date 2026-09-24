@@ -52,7 +52,11 @@ def _tokenizer_class():
 
 def fit_tokenizer(texts, config: SequenceConfig = SEQUENCE_CONFIG):
     """Fit a word tokenizer on the training texts."""
-    tokenizer = _tokenizer_class()(num_words=config.max_vocab, oov_token=config.oov_token)
+    tokenizer = _tokenizer_class()(
+        num_words=config.max_vocab,
+        oov_token=config.oov_token,
+        filters=config.tokenizer_filters,
+    )
     tokenizer.fit_on_texts(texts)
     return tokenizer
 

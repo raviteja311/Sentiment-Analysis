@@ -14,18 +14,18 @@ table by hand**, regenerate it.
 | Model | Split | Examples | Accuracy | Macro F1 | F1 negative | F1 neutral | F1 positive |
 |---|---|---|---|---|---|---|---|
 | Twitter-RoBERTa | validation | 2000 | 0.7925 | 0.7815 | 0.7363 | 0.7638 | 0.8443 |
-| Twitter-RoBERTa | test | 12284 | 0.7077 | 0.7084 | 0.7335 | 0.6920 | 0.6997 |
-| Bi-GRU | validation | 2000 | 0.6690 | 0.6504 | 0.5736 | 0.6818 | 0.6958 |
-| Bi-GRU | test | 12284 | 0.6424 | 0.6268 | 0.6246 | 0.6736 | 0.5821 |
-| Bi-LSTM | validation | 2000 | 0.6740 | 0.6521 | 0.5752 | 0.6964 | 0.6847 |
-| Bi-LSTM | test | 12284 | 0.6386 | 0.6185 | 0.5999 | 0.6807 | 0.5748 |
-| Logistic Regression | validation | 2000 | 0.6560 | 0.6360 | 0.5364 | 0.6512 | 0.7204 |
-| Logistic Regression | test | 12284 | 0.5827 | 0.5795 | 0.6006 | 0.5786 | 0.5592 |
+| Twitter-RoBERTa | test | 12284 | 0.7082 | 0.7094 | 0.7328 | 0.6916 | 0.7038 |
+| Bi-GRU | validation | 2000 | 0.6800 | 0.6620 | 0.5882 | 0.6937 | 0.7041 |
+| Bi-GRU | test | 12284 | 0.6343 | 0.6223 | 0.6317 | 0.6549 | 0.5803 |
+| Bi-LSTM | validation | 2000 | 0.6715 | 0.6470 | 0.5612 | 0.6934 | 0.6864 |
+| Bi-LSTM | test | 12284 | 0.6370 | 0.6181 | 0.6063 | 0.6757 | 0.5722 |
+| Logistic Regression | validation | 2000 | 0.6550 | 0.6349 | 0.5344 | 0.6496 | 0.7208 |
+| Logistic Regression | test | 12284 | 0.5806 | 0.5768 | 0.5990 | 0.5774 | 0.5540 |
 
 The transformer leads by a clear margin. The two recurrent models are within
 half a point of each other - treat them as equivalent - and beat the linear
-baseline by about 6 points of accuracy. Both initialise their embeddings from
-GloVe Twitter vectors (93% vocabulary coverage), which is worth roughly
+baseline by 5-6 points of accuracy. Both initialise their embeddings from
+GloVe Twitter vectors (95.5% vocabulary coverage), which is worth roughly
 +0.03 macro F1 and +0.05 positive-class F1 over learning them from scratch.
 See [MODEL_CARD.md](MODEL_CARD.md) for limitations and intended use.
 
@@ -205,31 +205,32 @@ docker build --target cpu --build-arg FETCH_MODELS="lstm gru roberta" .
 ## Calibration
 
 Raw softmax outputs are overconfident: before calibration the transformer
-averaged 0.917 confidence while being right 70.8% of the time. Two models are
-left alone - the GRU because it is already well calibrated after retraining
-(ECE 0.0220), and the linear baseline for the reason below. `make calibrate`
-fits a temperature per model on the validation split and stores it in
+averaged 0.917 confidence while being right 70.8% of the time. `make calibrate`
+fits a temperature per model on the validation split, adopts it only if it also
+helps on held-out validation folds, and stores it in
 `models/<key>/calibration.json`; the predictor applies it, so the API, the UI
-and the evaluation all report the same calibrated numbers.
+and the evaluation all report the same calibrated numbers. This table is
+printed by `python -m src.calibration --table-only` - regenerate it, do not
+edit it.
 
 | Model | Temperature | ECE before | ECE after | Mean confidence before | after | Accuracy |
 |---|---|---|---|---|---|---|
-| roberta | 2.00 | 0.2092 | 0.0925 | 0.917 | 0.800 | 0.7077 |
-| lstm | 1.16 | 0.0466 | 0.0147 | 0.685 | 0.652 | 0.6386 |
-| gru | 1.00 (not adopted) | 0.0220 | 0.0220 | 0.661 | 0.661 | 0.6424 |
-| lr | 1.00 (not adopted) | 0.0428 | 0.0428 | 0.611 | 0.611 | 0.5827 |
+| roberta | 2.00 | 0.2090 | 0.0918 | 0.917 | 0.800 | 0.7082 |
+| lstm | 1.12 | 0.0482 | 0.0248 | 0.684 | 0.659 | 0.6370 |
+| gru | 1.18 | 0.0510 | 0.0226 | 0.683 | 0.649 | 0.6343 |
+| lr | 1.00 (not adopted) | 0.0444 | 0.0444 | 0.611 | 0.611 | 0.5806 |
 
 Fitted on validation, measured on test. Temperature scaling is monotonic, so no
 prediction changes and the results table above is unaffected - only the spread
 of the probabilities moves.
 
-Two models are left uncalibrated. The GRU is already well calibrated after
-retraining (ECE 0.0220) and its candidate temperature lost ground on held-out
-validation folds. The temperature is also constrained to at least 1.0, so
-calibration can only soften confidence. Unconstrained, the linear baseline fits 0.94 on validation and gets
-*worse* on test: it is underconfident on validation (61.1% confidence, 65.6%
-accuracy) and overconfident on test (58.3% accuracy), because validation is the
-easier split. It is therefore left uncalibrated rather than sharpened.
+The linear baseline is left uncalibrated. The temperature is constrained to at
+least 1.0, so calibration can only soften confidence, and the bounded fit lands
+on exactly 1.0. Unconstrained, it fits 0.94 on validation and gets *worse* on
+test (ECE 0.0444 -> 0.0517): the model is underconfident on validation (63.3%
+confidence, 65.5% accuracy) and overconfident on test (61.1% confidence, 58.1%
+accuracy), because validation is the easier split. It is therefore left alone
+rather than sharpened.
 
 ## Retraining
 
@@ -256,7 +257,7 @@ what keeps it inside 4 GB of VRAM.
 ## Tests and quality
 
 ```bash
-make test         # 274 tests
+make test         # 297 tests
 make lint         # ruff + black
 ```
 

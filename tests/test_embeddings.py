@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from src import embeddings
-from src.config import LSTM_DIR
+from src.config import SEQUENCE_CONFIG
 
 
 @pytest.fixture
@@ -58,25 +58,41 @@ def test_words_beyond_the_cap_are_ignored(fake_vectors):
     assert coverage == pytest.approx(1.0)
 
 
-@pytest.mark.skipif(
-    not (LSTM_DIR / "tokenizer.joblib").is_file(), reason="tokenizer not present"
-)
-def test_the_tokenizer_strips_the_placeholder_brackets():
-    """The vocabulary holds `user`, not `<user>`.
+@pytest.mark.parametrize("model", ["lstm", "gru"])
+def test_the_tokenizer_keeps_the_placeholder_brackets(model):
+    """The vocabulary holds `<user>` and `<url>`, the GloVe Twitter tokens.
 
-    preprocess_tweet emits `<user>` and `<url>`, and GloVe Twitter has tokens by
-    those names - but the Keras tokenizer's default filters include `<` and `>`,
-    so the brackets never reach the embedding lookup. An earlier version of this
-    test hand-built a vocabulary containing `<user>` and therefore passed while
-    the docstring claiming the match was wrong.
+    preprocess_tweet emits those placeholders and GloVe Twitter has vectors by
+    exactly those names. The Keras tokenizer's *default* filters include `<`
+    and `>`, which silently turned them into the plain words "user" and "url" -
+    so a mention was indistinguishable from the noun and the placeholder vectors
+    were never used. SequenceConfig.tokenizer_filters now keeps the brackets;
+    this pins the committed artifact to that behaviour.
     """
     import joblib
 
-    word_index = joblib.load(LSTM_DIR / "tokenizer.joblib").word_index
-    assert "user" in word_index
-    assert "<user>" not in word_index
-    assert "url" in word_index
-    assert "<url>" not in word_index
+    from src.config import MODEL_DIRS
+
+    path = MODEL_DIRS[model] / "tokenizer.joblib"
+    if not path.is_file():
+        pytest.skip("tokenizer not present")
+
+    tokenizer = joblib.load(path)
+    assert "<" not in tokenizer.filters and ">" not in tokenizer.filters
+    assert tokenizer.filters == SEQUENCE_CONFIG.tokenizer_filters
+
+    word_index = tokenizer.word_index
+    assert "<user>" in word_index
+    assert "<url>" in word_index
+    # Within the embedding table, not beyond the cap where it would map to OOV.
+    assert word_index["<user>"] < SEQUENCE_CONFIG.max_vocab
+
+
+def test_configured_filters_keep_brackets_and_drop_the_rest():
+    filters = SEQUENCE_CONFIG.tokenizer_filters
+    assert "<" not in filters and ">" not in filters
+    for char in "!#$%&()*+,-./:;=?@[]^_`{|}~":
+        assert char in filters
 
 
 def test_matrix_is_float32(fake_vectors):
