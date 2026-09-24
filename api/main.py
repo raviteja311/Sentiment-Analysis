@@ -22,7 +22,7 @@ import logging
 from typing import Annotated
 
 from fastapi import FastAPI, HTTPException, status
-from pydantic import BaseModel, Field, field_validator
+from pydantic import AfterValidator, BaseModel, Field, field_validator
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
@@ -58,6 +58,17 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
 
+# FastAPI owns the docs routes, so they cannot carry @limiter.exempt; name
+# them directly. Reading the documentation should not consume a caller's budget.
+limiter._exempt_routes.update(
+    {
+        "fastapi.applications.openapi",
+        "fastapi.applications.swagger_ui_html",
+        "fastapi.applications.swagger_ui_redirect",
+        "fastapi.applications.redoc_html",
+    }
+)
+
 # Registered last, so it is the OUTERMOST middleware: Starlette runs the most
 # recently added first. A throttled request must still get an X-Request-ID and
 # an access log line - otherwise the requests most worth investigating are the
@@ -69,8 +80,22 @@ app.middleware("http")(request_id_middleware)
 TEXT_FIELD = Field(min_length=1, max_length=5_000)
 
 
+def _non_blank(value: str) -> str:
+    """Reject whitespace-only input.
+
+    `min_length` counts characters, so "   " passed validation and was scored -
+    the model duly returned a confident-looking label for nothing.
+    """
+    if not value.strip():
+        raise ValueError("must not be blank")
+    return value
+
+
+NonBlankText = Annotated[str, TEXT_FIELD, AfterValidator(_non_blank)]
+
+
 class PredictRequest(BaseModel):
-    text: str = TEXT_FIELD
+    text: NonBlankText
     model: str = Field(
         default="lr",
         description=(
@@ -93,9 +118,7 @@ class PredictRequest(BaseModel):
 class BatchPredictRequest(BaseModel):
     # Annotated applies the length limits to each item; putting them on the
     # list alone would bound how many texts arrive, not how long each is.
-    texts: list[Annotated[str, TEXT_FIELD]] = Field(
-        min_length=1, max_length=MAX_BATCH_SIZE
-    )
+    texts: list[NonBlankText] = Field(min_length=1, max_length=MAX_BATCH_SIZE)
     model: str = Field(default="lr")
 
     @field_validator("model")

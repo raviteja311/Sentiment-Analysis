@@ -36,27 +36,30 @@ FROM base AS cpu
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-COPY src/ src/
-COPY api/ api/
-COPY app/ app/
+# --chown at copy time: a later `chown -R` rewrites every file into a new
+# layer, which with weights baked in stores them twice.
+RUN useradd --create-home --uid 1000 appuser
+
+COPY --chown=appuser:appuser src/ src/
+COPY --chown=appuser:appuser api/ api/
+COPY --chown=appuser:appuser app/ app/
 
 # Only the small artifacts come from the build context - the LR pipeline, the
 # tokenizers and the transformer's config and vocabulary. The large weights are
 # excluded by .dockerignore and fetched from object storage instead.
-COPY models/ models/
+COPY --chown=appuser:appuser models/ models/
 
 # Which models' weights to bake into the image. Empty by default, which keeps
 # the image small and leaves it serving Logistic Regression only; the rest can
 # be mounted at run time (see docker-compose.yml) or baked in with:
 #   docker build --target cpu --build-arg FETCH_MODELS="lstm gru roberta" .
 ARG FETCH_MODELS=""
+
+# Fetch as the runtime user, so the downloads need no ownership fix afterwards.
+USER appuser
 RUN if [ -n "$FETCH_MODELS" ]; then \
         python -m src.artifacts --models $FETCH_MODELS; \
     fi
-
-# Run as a non-root user. Nothing here needs to write to the filesystem.
-RUN useradd --create-home --uid 1000 appuser && chown -R appuser:appuser /app
-USER appuser
 
 EXPOSE 8000
 

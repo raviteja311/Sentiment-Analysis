@@ -52,6 +52,9 @@ def test_model_status_reports_every_model(model):
         "available",
         "reason",
         "version",
+        "loaded",
+        "version_on_disk",
+        "stale",
         "artifacts",
     }
     assert status["available"] is (status["reason"] is None)

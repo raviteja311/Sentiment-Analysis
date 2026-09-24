@@ -42,7 +42,14 @@ import sys
 
 import numpy as np
 
-from src.config import MODEL_DIRS, MODEL_KEYS, NUM_LABELS, SEED, resolve_model
+from src.config import (
+    MODEL_ALIASES,
+    MODEL_DIRS,
+    MODEL_KEYS,
+    NUM_LABELS,
+    SEED,
+    resolve_model,
+)
 from src.utils.io import load_json, save_json
 
 LOGGER = logging.getLogger(__name__)
@@ -67,7 +74,7 @@ def load_temperature(model: str) -> float | None:
         return None
     try:
         return float(load_json(path)["temperature"])
-    except (KeyError, ValueError, OSError):
+    except (KeyError, ValueError, TypeError, OSError):
         LOGGER.warning("Ignoring unreadable calibration file: %s", path)
         return None
 
@@ -286,15 +293,28 @@ def calibrate_model(model: str, dataset=None, batch_size: int = 64) -> dict:
 def calibrate(models: list[str] | None = None, batch_size: int = 64) -> list[dict]:
     """Calibrate several models, skipping any that are unavailable."""
     from src.data import load_raw_dataset
-    from src.inference.predictor import available_models
+    from src.inference.predictor import available_models, check_artifacts
 
-    requested = models or available_models()
-    if not requested:
+    requested = [resolve_model(m) for m in models] if models else available_models()
+
+    # Filter before touching the dataset. Skipping rather than crashing matches
+    # src.evaluate - asking to calibrate a model whose weights are absent is a
+    # normal thing to do on a fresh clone - and doing it first avoids
+    # downloading tweet_eval only to discover there is nothing to calibrate.
+    usable = []
+    for model in requested:
+        reason = check_artifacts(model)
+        if reason is not None:
+            LOGGER.warning("Skipping %s: %s", model, reason)
+            continue
+        usable.append(model)
+
+    if not usable:
         LOGGER.warning("No usable models. Run `make fetch-weights` first.")
         return []
 
     dataset = load_raw_dataset()
-    return [calibrate_model(model, dataset, batch_size) for model in requested]
+    return [calibrate_model(model, dataset, batch_size) for model in usable]
 
 
 def markdown_table(records: list[dict]) -> str:
@@ -339,7 +359,13 @@ def load_records(models: list[str] | None = None) -> list[dict]:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--models", nargs="+", choices=MODEL_KEYS)
+    parser.add_argument(
+        "--models",
+        nargs="+",
+        # Aliases are documented, so the CLI has to take them too.
+        choices=[*MODEL_KEYS, *MODEL_ALIASES],
+        metavar="MODEL",
+    )
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument(
         "--table-only", action="store_true", help="print existing results only"

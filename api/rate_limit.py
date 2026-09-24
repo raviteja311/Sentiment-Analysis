@@ -17,9 +17,14 @@ Two consequences of that, stated rather than discovered later:
   do that **only** when a proxy you control overwrites that header, because
   otherwise a caller can set it themselves and sidestep the limit entirely.
 
-Health and readiness probes are exempt, via ``@limiter.exempt`` in api/main.py.
-Throttling a liveness probe gets a healthy container restarted, which converts a
-traffic spike into an outage.
+Health and readiness probes are exempt, via ``@limiter.exempt`` in api/main.py,
+as are the OpenAPI docs. Throttling a liveness probe gets a healthy container
+restarted, which converts a traffic spike into an outage; throttling ``/docs``
+just makes the service look broken to someone reading it.
+
+The limit is shared across endpoints rather than applied per route, so a caller
+cannot spend it twice by alternating between ``/predict`` and
+``/predict/batch``.
 
 Configure with ``RATE_LIMIT`` (e.g. ``60/minute``, or ``off`` to disable),
 ``RATE_LIMIT_STORAGE_URI`` and ``TRUST_PROXY_HEADERS``.
@@ -82,6 +87,11 @@ def build_limiter() -> Limiter:
     return Limiter(
         key_func=client_key,
         default_limits=[limit] if limit else [],
+        # A shared budget across every endpoint. Per-route limits meant one
+        # caller got the full allowance on /predict *and* again on
+        # /predict/batch - and a batch carries up to 256 texts, so the real
+        # ceiling was orders of magnitude above the configured one.
+        application_limits=[limit] if limit else [],
         storage_uri=storage_uri,
         enabled=limit is not None,
         # Tell callers where they stand before they hit the wall.

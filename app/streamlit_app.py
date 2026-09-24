@@ -91,7 +91,11 @@ def main() -> None:
         st.error(str(error))
         return
 
-    prediction = predictor.predict(text)
+    try:
+        prediction = predictor.predict(text)
+    except Exception as error:  # noqa: BLE001 - the UI must not show a traceback
+        st.error(f"Prediction failed: {error}")
+        return
 
     st.subheader(f"Prediction: {prediction.label.upper()}")
     st.metric("Confidence", f"{prediction.confidence:.1%}")

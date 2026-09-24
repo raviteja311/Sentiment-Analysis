@@ -125,8 +125,13 @@ curl -X POST localhost:8000/predict \
 
 `version` is a digest of the artifact that produced the prediction - the
 weights, the tokenizer and the calibration file - so a logged prediction stays
-traceable after a retrain or a re-fetch. `GET /models` reports the same version
-per model along with a digest for each file.
+traceable after a retrain or a re-fetch.
+
+`GET /models` reports the version **actually being served**. A predictor is
+cached once loaded, so replacing weights on disk does not change what answers
+requests; the response therefore also carries `loaded`, `version_on_disk` and
+`stale`, which tells you a restart is needed rather than quietly reporting a
+version nothing is using.
 
 `confidence` is **calibrated**, not a raw softmax - see
 [Calibration](#calibration).
@@ -152,10 +157,12 @@ produced it:
 
 ### Rate limiting
 
-The prediction endpoints are limited to `60/minute` per caller IP by default,
-answering **429** with a `Retry-After` header and reporting the remaining budget
-in `X-RateLimit-*`. Health, readiness and `/models` are exempt - throttling a
-liveness probe gets a healthy container restarted.
+Callers get `60/minute` by default, **shared across endpoints** so the budget
+cannot be spent twice by alternating between `/predict` and `/predict/batch`.
+Exceeding it returns **429** with a `Retry-After` header, and the remaining
+budget is reported in `X-RateLimit-*`. Health, readiness, `/models` and the
+OpenAPI docs are exempt - throttling a liveness probe gets a healthy container
+restarted, and throttling `/docs` just makes the service look broken.
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -249,7 +256,7 @@ what keeps it inside 4 GB of VRAM.
 ## Tests and quality
 
 ```bash
-make test         # 259 tests
+make test         # 274 tests
 make lint         # ruff + black
 ```
 

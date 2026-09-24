@@ -29,7 +29,9 @@ from src.config import (
     DATASET_NAME,
     LABELS,
     METRICS_DIR,
+    MODEL_ALIASES,
     MODEL_KEYS,
+    resolve_model,
 )
 from src.data import class_distribution, load_raw_dataset
 from src.inference.predictor import (
@@ -127,7 +129,7 @@ def evaluate_models(
     batch_size: int = DEFAULT_BATCH_SIZE,
 ) -> list[dict]:
     """Evaluate several models, skipping any whose artifacts are unavailable."""
-    requested = models or available_models()
+    requested = [resolve_model(m) for m in models] if models else available_models()
     dataset = load_raw_dataset()
 
     reports = []
@@ -220,7 +222,8 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--models",
         nargs="+",
-        choices=MODEL_KEYS,
+        choices=[*MODEL_KEYS, *MODEL_ALIASES],
+        metavar="MODEL",
         help="models to evaluate (default: every available model)",
     )
     parser.add_argument("--split", default=DEFAULT_SPLIT)

@@ -21,7 +21,7 @@ models exist.
 
 from __future__ import annotations
 
-import functools
+import threading
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -134,18 +134,28 @@ def model_status() -> dict[str, dict]:
     """Availability of every known model, for health endpoints and the UI."""
     from src.inference.versioning import artifact_digests, model_version
 
+    loaded = loaded_models()
+
     status = {}
     for model in MODEL_KEYS:
         reason = check_artifacts(model)
+        on_disk = model_version(model) if reason is None else None
+        in_memory = loaded[model].version if model in loaded else None
+
         status[model] = {
             "display_name": MODEL_DISPLAY_NAMES[model],
             "path": _display_path(MODEL_DIRS[model]),
             "available": reason is None,
             "reason": reason,
-            # Content-derived, so a prediction can be traced to the bytes that
-            # produced it even after a retrain or a re-fetch.
-            "version": model_version(model),
-            "artifacts": artifact_digests(model),
+            # `version` is what predictions actually come from. A predictor is
+            # cached once loaded, so replacing the weights or the calibration on
+            # disk does not change what is being served - reporting the disk
+            # version here would promise traceability the service cannot honour.
+            "version": in_memory or on_disk,
+            "loaded": model in loaded,
+            "version_on_disk": on_disk,
+            "stale": in_memory is not None and in_memory != on_disk,
+            "artifacts": artifact_digests(model) if reason is None else {},
         }
     return status
 
@@ -312,26 +322,50 @@ _PREDICTORS = {
 }
 
 
-@functools.cache
-def _load_predictor_cached(model: str) -> Predictor:
-    """Load a predictor, reusing the instance on subsequent calls.
+_LOADED: dict[str, Predictor] = {}
+
+# functools.cache only locks its own bookkeeping, not the call, so four
+# simultaneous first requests build four models - a ~2 GB spike for the
+# transformer. One lock per key serialises the first load and lets subsequent
+# readers past.
+_LOAD_LOCKS: dict[str, threading.Lock] = {}
+_LOCKS_GUARD = threading.Lock()
+
+
+def _lock_for(model: str) -> threading.Lock:
+    with _LOCKS_GUARD:
+        return _LOAD_LOCKS.setdefault(model, threading.Lock())
+
+
+def load_predictor(model: str) -> Predictor:
+    """Load a predictor by key, resolving deprecated aliases first.
 
     Raises :class:`ModelUnavailableError` if the artifacts are missing or are
     Git LFS pointer stubs.
     """
-    _require_known_model(model)
-    return _PREDICTORS[model]()
+    model = resolve_model(model)
+    cached = _LOADED.get(model)
+    if cached is not None:
+        return cached
+
+    with _lock_for(model):
+        cached = _LOADED.get(model)
+        if cached is not None:
+            return cached
+        _require_known_model(model)
+        predictor = _PREDICTORS[model]()
+        _LOADED[model] = predictor
+        return predictor
 
 
-def load_predictor(model: str) -> Predictor:
-    """Load a predictor by key, resolving deprecated aliases first so that an
-    alias and its canonical name share one cached instance."""
-    return _load_predictor_cached(resolve_model(model))
+def loaded_models() -> dict[str, Predictor]:
+    """Predictors currently held in memory, keyed by canonical name."""
+    return dict(_LOADED)
 
 
 def clear_cache() -> None:
     """Drop cached predictors (used by tests and after retraining)."""
-    _load_predictor_cached.cache_clear()
+    _LOADED.clear()
 
 
 def predict(text: str, model: str) -> Prediction:

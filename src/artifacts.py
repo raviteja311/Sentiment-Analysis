@@ -23,6 +23,7 @@ import sys
 from pathlib import Path
 
 from src.config import (
+    MODEL_ALIASES,
     MODEL_KEYS,
     MODELS_DIR,
     MODELS_REPO,
@@ -109,7 +110,13 @@ def fetch(
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--models", nargs="+", choices=MODEL_KEYS)
+    parser.add_argument(
+        "--models",
+        nargs="+",
+        # Aliases are documented, so the CLI has to take them too.
+        choices=[*MODEL_KEYS, *MODEL_ALIASES],
+        metavar="MODEL",
+    )
     parser.add_argument("--repo", default=MODELS_REPO)
     parser.add_argument("--revision", default=MODELS_REPO_REVISION)
     parser.add_argument(
