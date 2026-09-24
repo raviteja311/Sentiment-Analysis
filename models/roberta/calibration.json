@@ -1,24 +1,24 @@
 {
   "model": "roberta",
-  "temperature": 1.9987232339398766,
-  "candidate_temperature": 1.9987232339398766,
+  "temperature": 1.9874954922997166,
+  "candidate_temperature": 1.9874954922997166,
   "adopted": true,
-  "held_out_ece_gain": 0.09403393419086933,
+  "held_out_ece_gain": 0.09048117798566817,
   "method": "temperature scaling",
   "fitted_on": "validation",
   "measured_on": "test",
   "before": {
-    "ece": 0.20895159312711015,
-    "nll": 1.000030517578125,
-    "brier": 0.4860997200012207,
-    "mean_confidence": 0.9170888662338257,
-    "accuracy": 0.7082383588407685
+    "ece": 0.20389405356065649,
+    "nll": 0.973263680934906,
+    "brier": 0.4806624948978424,
+    "mean_confidence": 0.9148188233375549,
+    "accuracy": 0.7109247802018887
   },
   "after": {
-    "ece": 0.0918487147569113,
-    "nll": 0.6901805400848389,
-    "brier": 0.4172070324420929,
-    "mean_confidence": 0.800080418586731,
-    "accuracy": 0.7082383588407685
+    "ece": 0.08649810485587917,
+    "nll": 0.6823246479034424,
+    "brier": 0.41312187910079956,
+    "mean_confidence": 0.7963934540748596,
+    "accuracy": 0.7109247802018887
   }
 }

@@ -13,8 +13,8 @@ table by hand**, regenerate it.
 
 | Model | Split | Examples | Accuracy | Macro F1 | F1 negative | F1 neutral | F1 positive |
 |---|---|---|---|---|---|---|---|
-| Twitter-RoBERTa | validation | 2000 | 0.7925 | 0.7815 | 0.7363 | 0.7638 | 0.8443 |
-| Twitter-RoBERTa | test | 12284 | 0.7082 | 0.7094 | 0.7328 | 0.6916 | 0.7038 |
+| Twitter-RoBERTa | validation | 2000 | 0.7945 | 0.7864 | 0.7539 | 0.7637 | 0.8417 |
+| Twitter-RoBERTa | test | 12284 | 0.7109 | 0.7124 | 0.7328 | 0.6954 | 0.7091 |
 | Bi-GRU | validation | 2000 | 0.6800 | 0.6620 | 0.5882 | 0.6937 | 0.7041 |
 | Bi-GRU | test | 12284 | 0.6343 | 0.6223 | 0.6317 | 0.6549 | 0.5803 |
 | Bi-LSTM | validation | 2000 | 0.6715 | 0.6470 | 0.5612 | 0.6934 | 0.6864 |
@@ -205,7 +205,7 @@ docker build --target cpu --build-arg FETCH_MODELS="lstm gru roberta" .
 ## Calibration
 
 Raw softmax outputs are overconfident: before calibration the transformer
-averaged 0.917 confidence while being right 70.8% of the time. `make calibrate`
+averaged 0.915 confidence while being right 71.1% of the time. `make calibrate`
 fits a temperature per model on the validation split, adopts it only if it also
 helps on held-out validation folds, and stores it in
 `models/<key>/calibration.json`; the predictor applies it, so the API, the UI
@@ -215,7 +215,7 @@ edit it.
 
 | Model | Temperature | ECE before | ECE after | Mean confidence before | after | Accuracy |
 |---|---|---|---|---|---|---|
-| roberta | 2.00 | 0.2090 | 0.0918 | 0.917 | 0.800 | 0.7082 |
+| roberta | 1.99 | 0.2039 | 0.0865 | 0.915 | 0.796 | 0.7109 |
 | lstm | 1.12 | 0.0482 | 0.0248 | 0.684 | 0.659 | 0.6370 |
 | gru | 1.18 | 0.0510 | 0.0226 | 0.683 | 0.649 | 0.6343 |
 | lr | 1.00 (not adopted) | 0.0444 | 0.0444 | 0.611 | 0.611 | 0.5806 |

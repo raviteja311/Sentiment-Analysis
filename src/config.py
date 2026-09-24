@@ -194,9 +194,11 @@ class RobertaConfig:
     base_model: str = "cardiffnlp/twitter-roberta-base-sentiment"
     max_len: int = 128
     batch_size: int = 8
-    # The committed run used 3 epochs. Its own trainer_state.json shows epoch 1
-    # was the best checkpoint (macro F1 0.7806) while validation loss climbed
-    # from 0.5146 to 0.9767 by epoch 3, so any retrain should stop earlier.
+    # The original run used 3 epochs; its trainer_state.json showed epoch 1 as
+    # the best checkpoint (macro F1 0.7806) while validation loss climbed from
+    # 0.5146 to 0.9767 by epoch 3. Retrains therefore stop at 2. In the
+    # committed 2026-09-24 run epoch 2 was the better checkpoint on macro F1
+    # (0.7864 against 0.7754); see reports/metrics/roberta_training_history.json.
     epochs: int = 2
     learning_rate: float = 2e-5
     weight_decay: float = 0.01
