@@ -84,6 +84,22 @@ def compute_class_weights(labels, strategy: str | None) -> dict[int, float] | No
     return {int(cls): float(weight) for cls, weight in zip(classes, weights, strict=True)}
 
 
+def _portable(tokenizer):
+    """Strip the defaultdicts before pickling.
+
+    Keras fills `word_docs` and `index_docs` with `defaultdict(int)`, and
+    pickling a defaultdict also pickles its factory. Training imports
+    `datasets`, which registers dill's reducers, so the builtin `int` gets
+    written as a `dill._dill._load_type` reference - and the artifact then only
+    loads where dill is installed. dill is a *training* dependency, so the
+    tokenizer became unloadable in an inference-only environment, silently,
+    because the machine that wrote it always had dill.
+    """
+    tokenizer.word_docs = dict(tokenizer.word_docs)
+    tokenizer.index_docs = dict(tokenizer.index_docs)
+    return tokenizer
+
+
 def train_sequence_model(
     key: str,
     build_fn: Callable,
@@ -111,7 +127,7 @@ def train_sequence_model(
 
     LOGGER.info("Fitting tokenizer (max_vocab=%d)...", config.max_vocab)
     tokenizer = fit_tokenizer(train_texts, config)
-    joblib.dump(tokenizer, out_dir / "tokenizer.joblib")
+    joblib.dump(_portable(tokenizer), out_dir / "tokenizer.joblib")
 
     features = {
         name: texts_to_padded(tokenizer, texts, config.max_len)

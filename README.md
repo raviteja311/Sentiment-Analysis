@@ -249,7 +249,7 @@ what keeps it inside 4 GB of VRAM.
 ## Tests and quality
 
 ```bash
-make test         # 257 tests
+make test         # 259 tests
 make lint         # ruff + black
 ```
 

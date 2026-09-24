@@ -88,3 +88,20 @@ def test_builds_are_reproducible(fake_vectors):
     first, _ = embeddings.build_embedding_matrix({"zzz": 1}, vocab_size=2, dim=4, seed=7)
     second, _ = embeddings.build_embedding_matrix({"zzz": 1}, vocab_size=2, dim=4, seed=7)
     assert np.allclose(first, second)
+
+
+@pytest.mark.parametrize("model", ["lstm", "gru"])
+def test_tokenizers_do_not_depend_on_training_only_packages(model):
+    """A committed tokenizer must load with the inference stack alone.
+
+    `dill` arrives via `datasets`, which is a training dependency. A pickled
+    `defaultdict(int)` picked up a `dill._dill` reference from dill's reducers,
+    so the artifact only loaded on machines that had trained something. CI
+    caught it; nothing local did, because dill was always installed here.
+    """
+    from src.config import MODEL_DIRS
+
+    path = MODEL_DIRS[model] / "tokenizer.joblib"
+    if not path.is_file():
+        pytest.skip("tokenizer not present")
+    assert b"dill._dill" not in path.read_bytes()
