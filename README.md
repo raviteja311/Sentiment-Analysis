@@ -35,9 +35,9 @@ GloVe Twitter vectors (95.8% vocabulary coverage), which is worth roughly
 The rows marked "base, not fine-tuned" are checkpoints exactly as published,
 scored by `python -m src.evaluate --include-base`: the transformer's base, and
 `twitter-roberta-base-sentiment-latest` as a candidate replacement for it.
-Both are already fine-tuned on this dataset, and both currently score
-**above** our fine-tuned run on test; see the model card for what that means
-and what is being done about it. Macro recall is TweetEval's official metric
+Both are already fine-tuned on this dataset, and both score **above** our
+fine-tuned run on test; the model card says what that means and why the
+served transformer is left as it is. Macro recall is TweetEval's official metric
 for this task; `n/a` marks records written before it was reported.
 See [MODEL_CARD.md](MODEL_CARD.md) for limitations and intended use.
 

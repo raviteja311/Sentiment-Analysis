@@ -70,14 +70,15 @@ and `<3` as single tokens, so `<user>` is a different feature from the noun
 "user" and the recurrent models can use GloVe Twitter's vectors for `<user>`
 and `<url>`.
 
-`cardiff-v1`, for the transformer from its next retrain: what its base
+`cardiff-v1`, the spec `TRAIN_PREPROCESSING` names for the transformer, so
+any future retrain of it uses this rather than `glove-v1`: what its base
 checkpoint was trained on, which is `@mentions` → `@user` and URLs → `http`,
 entities decoded, nothing else. No lowercasing and no emoji-to-words, because
 the byte-level BPE vocabulary is cased and already knows emoji.
 
 `glove-v1` is the original behaviour: `glove-v2` without the entity decoding,
-hashtag splitting and negation expansion. The transformer currently served was
-trained with it and keeps receiving it until it is retrained.
+hashtag splitting and negation expansion. The served transformer was trained
+with it and is served with it; no retrain is planned.
 
 ## Evaluation
 
@@ -125,9 +126,14 @@ is itself fine-tuned on TweetEval sentiment, and scored as published it reaches
 0.7246 accuracy and 0.7240 macro F1 on test, against 0.7109 and 0.7124 for the
 checkpoint we fine-tuned from it. Our training run, on the `glove-v1`
 preprocessing that lowercases and turns emoji into words, made the transformer
-slightly worse. The next retrain uses `cardiff-v1`, the preprocessing the base
-checkpoint expects; until it lands, the honest reading of the table is that
-fine-tuning has not yet added anything.
+slightly worse. The honest reading of the table is that fine-tuning has not
+added anything, and the decision was to leave the served transformer as it is
+rather than spend a GPU run on it: the base checkpoint is the stronger model
+by 1.3 points of accuracy on test, and anyone who wants that margin can serve
+the base checkpoint directly. Should a retrain be attempted, the code is
+ready for it: `make train-roberta` now trains with `cardiff-v1`, the
+preprocessing the base checkpoint expects, and records the spec beside the
+weights.
 
 **The newer base is not a better starting point.** `twitter-roberta-base-sentiment-latest`,
 the same architecture trained by the same group on a larger and more recent
@@ -226,7 +232,8 @@ fitted to; the Bi-LSTM's raw ECE of 0.031 is already the lowest of the three.
 linear and recurrent models were retrained on 2026-09-25 with `glove-v2` and,
 for the recurrent ones, padding masks, and record that spec beside their
 weights. The transformer is the 2026-09-24 run, trained with `glove-v1`, and is
-served with `glove-v1` until it is retrained with `cardiff-v1`. In that run
+served with `glove-v1`; a retrain would use `cardiff-v1`, but none is planned.
+In that run
 epoch 2 was the better checkpoint on validation macro F1 (0.7864 against
 0.7754) even though validation loss rose from 0.508 to 0.648, which is why
 checkpoint selection is on F1 rather than loss.
