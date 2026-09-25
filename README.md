@@ -13,7 +13,10 @@ table by hand**, regenerate it.
 
 | Model | Split | Examples | Accuracy | Macro F1 | Macro recall | F1 negative | F1 neutral | F1 positive |
 |---|---|---|---|---|---|---|---|---|
-| Twitter-RoBERTa (base, not fine-tuned) | test | 12284 | 0.7246 | 0.7240 | 0.7276 | 0.7447 | 0.7150 | 0.7125 |
+| Twitter-RoBERTa (base, not fine-tuned) | test | - | 0.7246 | 0.7240 | 0.7276 | 0.7447 | 0.7150 | 0.7125 |
+| Twitter-RoBERTa (base, not fine-tuned) | validation | 2000 | 0.8055 | 0.7996 | 0.8080 | 0.7704 | 0.7864 | 0.8418 |
+| cardiffnlp/twitter-roberta-base-sentiment-latest (base, not fine-tuned) | validation | - | 0.7715 | 0.7610 | 0.7769 | 0.7116 | 0.7494 | 0.8220 |
+| cardiffnlp/twitter-roberta-base-sentiment-latest (base, not fine-tuned) | test | 12284 | 0.7234 | 0.7255 | 0.7363 | 0.7450 | 0.7054 | 0.7262 |
 | Twitter-RoBERTa | validation | 2000 | 0.7945 | 0.7864 | n/a | 0.7539 | 0.7637 | 0.8417 |
 | Twitter-RoBERTa | test | 12284 | 0.7109 | 0.7124 | n/a | 0.7328 | 0.6954 | 0.7091 |
 | Bi-LSTM | validation | 2000 | 0.6705 | 0.6450 | 0.6359 | 0.5590 | 0.6947 | 0.6814 |
@@ -29,12 +32,13 @@ baseline by 5-6 points of accuracy. Both initialise their embeddings from
 GloVe Twitter vectors (95.8% vocabulary coverage), which is worth roughly
 +0.03 macro F1 and +0.05 positive-class F1 over learning them from scratch.
 
-The first row is the transformer's base checkpoint exactly as published,
-without our fine-tuning, scored by `python -m src.evaluate --include-base`.
-It is already fine-tuned on this dataset, and it currently scores **above**
-our fine-tuned run on every test metric; see the model card for what that
-means and what is being done about it. Macro recall is TweetEval's official
-metric for this task; `n/a` marks records written before it was reported.
+The rows marked "base, not fine-tuned" are checkpoints exactly as published,
+scored by `python -m src.evaluate --include-base`: the transformer's base, and
+`twitter-roberta-base-sentiment-latest` as a candidate replacement for it.
+Both are already fine-tuned on this dataset, and both currently score
+**above** our fine-tuned run on test; see the model card for what that means
+and what is being done about it. Macro recall is TweetEval's official metric
+for this task; `n/a` marks records written before it was reported.
 See [MODEL_CARD.md](MODEL_CARD.md) for limitations and intended use.
 
 Each record in `reports/metrics/` stores the hyperparameters, the split sizes and
