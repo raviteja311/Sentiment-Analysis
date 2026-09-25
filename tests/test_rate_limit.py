@@ -201,3 +201,152 @@ def test_the_service_puts_request_ids_outside_rate_limiting():
     # The request-id middleware is registered via app.middleware("http"), which
     # Starlette wraps in BaseHTTPMiddleware; it must come first (outermost).
     assert names.index("BaseHTTPMiddleware") < names.index("SlowAPIMiddleware")
+
+
+# --- the per-text budget ---------------------------------------------------
+#
+# A batch is one request, so the request limiter above charges the same for 256
+# texts as for one. The text budget charges per text. These tests run against
+# the real app with a budget swapped in on app.state, the way api/main.py
+# builds it, so the endpoints' own charging code is what is exercised.
+
+
+def _lr_available() -> bool:
+    from src.inference.predictor import check_artifacts
+
+    return check_artifacts("lr") is None
+
+
+needs_lr = pytest.mark.skipif(not _lr_available(), reason="lr artifacts unavailable")
+
+
+@pytest.fixture
+def budget_of(monkeypatch):
+    """Swap a budget of the given size into the real app for one test."""
+    from api.main import app
+
+    def install(limit: str | None) -> TestClient:
+        monkeypatch.setattr(
+            app.state, "text_budget", rate_limit.TextBudget(limit, "memory://")
+        )
+        return TestClient(app)
+
+    return install
+
+
+def batch(client, size: int):
+    return client.post(
+        "/predict/batch", json={"texts": ["good day"] * size, "model": "lr"}
+    )
+
+
+def test_text_limiting_is_on_by_default(monkeypatch):
+    monkeypatch.delenv("TEXT_RATE_LIMIT", raising=False)
+    assert rate_limit.text_rate_limit() == rate_limit.DEFAULT_TEXT_LIMIT
+
+
+@pytest.mark.parametrize("value", ["off", "OFF", "none", "disabled", ""])
+def test_text_limiting_can_be_switched_off(monkeypatch, value):
+    monkeypatch.setenv("TEXT_RATE_LIMIT", value)
+    assert rate_limit.text_rate_limit() is None
+    assert rate_limit.build_text_budget().enabled is False
+
+
+def test_a_batch_costs_one_unit_per_text():
+    budget = rate_limit.TextBudget("300/minute", "memory://")
+    assert budget.consume("caller", 256) is None
+    retry_after = budget.consume("caller", 256)
+    assert retry_after is not None and 1 <= retry_after <= 60
+
+
+def test_a_rejected_batch_consumes_nothing():
+    budget = rate_limit.TextBudget("300/minute", "memory://")
+    assert budget.consume("caller", 256) is None
+    assert budget.consume("caller", 256) is not None
+    # 44 texts remain; the rejected batch must not have eaten into them.
+    assert budget.consume("caller", 44) is None
+    assert budget.consume("caller", 1) is not None
+
+
+def test_callers_have_separate_text_budgets():
+    budget = rate_limit.TextBudget("300/minute", "memory://")
+    assert budget.consume("a", 300) is None
+    assert budget.consume("b", 300) is None
+
+
+def test_a_disabled_budget_admits_everything():
+    budget = rate_limit.TextBudget(None, "memory://")
+    assert budget.fits(10_000)
+    for _ in range(50):
+        assert budget.consume("caller", 256) is None
+
+
+def test_the_budget_knows_what_can_never_fit():
+    budget = rate_limit.TextBudget("100/minute", "memory://")
+    assert budget.fits(100)
+    assert not budget.fits(101)
+
+
+@needs_lr
+def test_a_second_full_batch_is_throttled(budget_of):
+    client = budget_of("300/minute")
+    assert batch(client, 256).status_code == 200
+    response = batch(client, 256)
+    assert response.status_code == 429
+    assert int(response.headers["Retry-After"]) >= 1
+    assert "Text rate limit exceeded" in response.json()["detail"]
+
+
+@needs_lr
+def test_a_throttled_batch_leaves_single_predictions_alone(budget_of):
+    client = budget_of("300/minute")
+    batch(client, 256)
+    assert batch(client, 256).status_code == 429
+    response = client.post("/predict", json={"text": "hello", "model": "lr"})
+    assert response.status_code == 200
+
+
+def test_a_batch_larger_than_the_whole_budget_is_told_so(budget_of):
+    response = batch(budget_of("100/minute"), 101)
+    assert response.status_code == 429
+    detail = response.json()["detail"]
+    assert "can never fit" in detail
+    assert "100" in detail
+
+
+def test_a_refused_batch_never_touches_a_model(budget_of, monkeypatch):
+    import api.main as api_main
+
+    def explode(model):
+        raise AssertionError("a predictor was loaded for a refused batch")
+
+    monkeypatch.setattr(api_main, "load_predictor", explode)
+    assert batch(budget_of("10/minute"), 11).status_code == 429
+
+
+@needs_lr
+def test_text_limiting_off_admits_repeated_full_batches(budget_of):
+    client = budget_of(None)
+    for _ in range(3):
+        assert batch(client, 256).status_code == 200
+
+
+@pytest.mark.parametrize(
+    "path", ["/health", "/ready", "/models", "/docs", "/openapi.json"]
+)
+def test_the_text_budget_never_touches_the_probes_or_docs(budget_of, path):
+    client = budget_of("300/minute")
+    if _lr_available():
+        batch(client, 256)
+        assert batch(client, 256).status_code == 429
+    assert client.get(path).status_code == 200
+
+
+def test_the_service_builds_its_text_budget_from_the_environment():
+    import api.main as api_main
+
+    # The suite runs with TEXT_RATE_LIMIT=off (see conftest), so the app's own
+    # budget must be the disabled one; enforcement is covered above with a
+    # budget swapped in on app.state.
+    assert isinstance(api_main.app.state.text_budget, rate_limit.TextBudget)
+    assert api_main.app.state.text_budget.enabled is False

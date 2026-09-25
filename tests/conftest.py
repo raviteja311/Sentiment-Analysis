@@ -16,6 +16,7 @@ import pytest
 # TestClient request shares one, and a few dozen API tests would otherwise
 # start throttling each other. tests/test_rate_limit.py enables it explicitly.
 os.environ.setdefault("RATE_LIMIT", "off")
+os.environ.setdefault("TEXT_RATE_LIMIT", "off")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:

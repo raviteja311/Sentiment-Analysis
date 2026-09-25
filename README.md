@@ -164,9 +164,16 @@ budget is reported in `X-RateLimit-*`. Health, readiness, `/models` and the
 OpenAPI docs are exempt - throttling a liveness probe gets a healthy container
 restarted, and throttling `/docs` just makes the service look broken.
 
+That limit counts requests, and a batch is one request however many texts it
+carries. A second budget therefore counts **texts**: `/predict` costs 1,
+`/predict/batch` costs one per text, and a batch that would overrun the budget
+is rejected whole with **429** without consuming anything. A batch larger than
+the entire budget says so in its `detail`, since waiting would not help.
+
 | Variable | Default | Purpose |
 |---|---|---|
-| `RATE_LIMIT` | `60/minute` | limit, or `off` to disable |
+| `RATE_LIMIT` | `60/minute` | request limit, or `off` to disable |
+| `TEXT_RATE_LIMIT` | `1024/minute` | text limit (a batch of N costs N), or `off` to disable |
 | `RATE_LIMIT_STORAGE_URI` | `memory://` | set to `redis://...` to share counters across workers |
 | `TRUST_PROXY_HEADERS` | unset | use `X-Forwarded-For` for the caller's identity |
 

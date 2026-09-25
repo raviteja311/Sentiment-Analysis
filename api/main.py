@@ -21,13 +21,18 @@ from __future__ import annotations
 import logging
 from typing import Annotated
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, Request, status
 from pydantic import AfterValidator, BaseModel, Field, field_validator
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from api.observability import configure_logging, request_id_middleware
-from api.rate_limit import build_limiter, rate_limit_exceeded_handler
+from api.rate_limit import (
+    build_limiter,
+    build_text_budget,
+    client_key,
+    rate_limit_exceeded_handler,
+)
 from src.config import MODEL_ALIASES, MODEL_KEYS, resolve_model
 from src.inference.predictor import (
     ModelUnavailableError,
@@ -57,6 +62,12 @@ limiter = build_limiter()
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
+
+# The request limiter charges one unit per call, so a batch of 256 texts costs
+# the same as one text. This second budget is counted in texts and charged by
+# the prediction endpoints themselves. Kept on app.state, like the limiter, so
+# tests can swap in a differently sized budget without rebuilding the app.
+app.state.text_budget = build_text_budget()
 
 # FastAPI owns the docs routes, so they cannot carry @limiter.exempt; name
 # them directly. Reading the documentation should not consume a caller's budget.
@@ -165,6 +176,44 @@ def _load_or_503(model: str):
         ) from error
 
 
+def _charge_texts(request: Request, cost: int) -> None:
+    """Spend ``cost`` texts of the caller's budget, or answer 429.
+
+    Charged before the model is loaded or run, so a throttled caller cannot
+    make the process do the expensive part anyway. The response mirrors the
+    request limiter's: a ``detail`` message and a ``Retry-After`` header.
+    """
+    budget = request.app.state.text_budget
+    if not budget.enabled:
+        return
+
+    if not budget.fits(cost):
+        # Waiting would not help: the whole window is smaller than this batch.
+        LOGGER.warning(
+            "batch exceeds text budget",
+            extra={"path": request.url.path, "limit": budget.limit, "texts": cost},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                f"A batch of {cost} texts can never fit under the text rate limit "
+                f"of {budget.limit}; send at most {budget.capacity} texts per batch."
+            ),
+        )
+
+    retry_after = budget.consume(client_key(request), cost)
+    if retry_after is not None:
+        LOGGER.warning(
+            "text rate limit exceeded",
+            extra={"path": request.url.path, "limit": budget.limit, "texts": cost},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Text rate limit exceeded: {budget.limit}.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
+
 @app.get("/health")
 @limiter.exempt
 def health() -> dict:
@@ -196,10 +245,11 @@ def models() -> dict:
 
 
 @app.post("/predict", response_model=PredictResponse)
-def predict(request: PredictRequest) -> PredictResponse:
+def predict(payload: PredictRequest, request: Request) -> PredictResponse:
     """Classify a single text."""
-    predictor = _load_or_503(request.model)
-    prediction = predictor.predict(request.text)
+    _charge_texts(request, 1)
+    predictor = _load_or_503(payload.model)
+    prediction = predictor.predict(payload.text)
 
     # The text itself is never logged - see api/observability.py.
     LOGGER.info(
@@ -209,22 +259,23 @@ def predict(request: PredictRequest) -> PredictResponse:
             "model_version": prediction.version,
             "label": prediction.label,
             "confidence": round(prediction.confidence, 4),
-            "text_length": len(request.text),
+            "text_length": len(payload.text),
         },
     )
     return PredictResponse.from_prediction(prediction)
 
 
 @app.post("/predict/batch", response_model=BatchPredictResponse)
-def predict_batch(request: BatchPredictRequest) -> BatchPredictResponse:
+def predict_batch(payload: BatchPredictRequest, request: Request) -> BatchPredictResponse:
     """Classify up to MAX_BATCH_SIZE texts in one call."""
-    predictor = _load_or_503(request.model)
-    predictions = predictor.predict_many(request.texts)
+    _charge_texts(request, len(payload.texts))
+    predictor = _load_or_503(payload.model)
+    predictions = predictor.predict_many(payload.texts)
 
     LOGGER.info(
         "batch prediction",
         extra={
-            "model": request.model,
+            "model": payload.model,
             "model_version": predictor.version,
             "batch_size": len(predictions),
         },

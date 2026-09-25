@@ -123,6 +123,33 @@ jobs:
           test "$code" = "429"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/health)" = "200"
 
+      - name: The text budget charges a batch per text
+        run: |
+          docker rm -f api
+          docker run -d --name api -p 8000:8000 -e TEXT_RATE_LIMIT=300/minute \
+            sentiment-analysis-api:ci
+          for _ in $(seq 1 30); do
+            curl -sf http://localhost:8000/health && break
+            sleep 2
+          done
+          texts=$(python3 -c 'import json; print(json.dumps(["good day"] * 256))')
+          batch() {
+            curl -s -o /dev/null -w '%{http_code}' -X POST \
+              http://localhost:8000/predict/batch -H 'Content-Type: application/json' \
+              -d "{\"texts\":$texts,\"model\":\"lr\"}"
+          }
+          first=$(batch)
+          second=$(batch)
+          echo "1st batch of 256 -> $first, 2nd -> $second"
+          test "$first" = "200"
+          test "$second" = "429"
+          # A rejected batch consumes nothing, so a single text still fits.
+          single=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            http://localhost:8000/predict -H 'Content-Type: application/json' \
+            -d '{"text":"hello","model":"lr"}')
+          echo "single /predict after the rejected batch -> $single"
+          test "$single" = "200"
+
       - name: Models without fetched weights are reported, not hidden
         run: |
           body=$(curl -sf http://localhost:8000/models)
