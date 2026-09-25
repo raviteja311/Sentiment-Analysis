@@ -91,6 +91,14 @@ python -m src.artifacts --models lstm     # or just one
 
 Point it elsewhere with `SENTIMENT_MODELS_REPO`.
 
+Downloads are pinned and verified. `models/remote_manifest.json` records the
+Hub commit that matches the committed tokenizers and calibration files, and the
+sha256 of every fetched file; a download that does not match is deleted and
+reported. `SENTIMENT_MODELS_REVISION` overrides the pin. After publishing new
+weights, `make publish-weights` rewrites the manifest so the pin moves with
+them; `python -m src.artifacts --write-manifest` does the same for weights
+already on the Hub.
+
 Skipping this step is not fatal. The Logistic Regression pipeline, the
 tokenizers and the transformer's config and vocabulary are small enough to stay
 in git, so a plain clone still serves predictions from `lr`; the neural models

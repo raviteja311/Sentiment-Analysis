@@ -5,6 +5,11 @@ Run this after training, to publish the artifacts that `src.artifacts` fetches::
     huggingface-cli login          # once, interactively
     python scripts/publish_weights.py --repo <user>/<repo>
 
+After uploading it rewrites models/remote_manifest.json with the new commit's
+SHA and the digests of the uploaded files, so that publishing and pinning are
+one step. Commit the manifest together with the tokenizers and calibration
+files from the same training run.
+
 Kept out of src/ deliberately: this is the only code in the project that writes
 to anything outside the working tree, and nothing at runtime should be able to
 reach it by accident.
@@ -23,7 +28,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.artifacts import local_path, remote_files  # noqa: E402
+from src.artifacts import local_path, remote_files, write_manifest  # noqa: E402
 from src.config import MODEL_KEYS, MODELS_REPO  # noqa: E402
 
 LOGGER = logging.getLogger(__name__)
@@ -67,16 +72,21 @@ def main(argv=None) -> int:
     else:
         LOGGER.info("Creating repository %s...", args.repo)
         api.create_repo(repo_id=args.repo, repo_type="model", private=args.private)
+    commit = None
     for relative in files:
         LOGGER.info("Uploading %s...", relative)
-        api.upload_file(
+        commit = api.upload_file(
             path_or_fileobj=str(local_path(relative)),
             path_in_repo=relative,
             repo_id=args.repo,
             repo_type="model",
         )
 
-    LOGGER.info("Done: https://huggingface.co/%s", args.repo)
+    # Each upload is its own commit; the last one contains all of them, so its
+    # SHA is the revision to pin.
+    write_manifest(args.repo, commit.oid)
+
+    LOGGER.info("Done: https://huggingface.co/%s/tree/%s", args.repo, commit.oid)
     return 0
 
 

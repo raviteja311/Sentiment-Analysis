@@ -11,10 +11,14 @@ cheap to import from tests, the API and the UI alike.
 
 from __future__ import annotations
 
+import json
+import logging
 import os
 import string
 from dataclasses import dataclass
 from pathlib import Path
+
+LOGGER = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -112,7 +116,48 @@ MODEL_DIRS: dict[str, Path] = {
 
 DEFAULT_MODELS_REPO = "RAVITEJA311/sentiment-analysis-models"
 MODELS_REPO = os.environ.get("SENTIMENT_MODELS_REPO", DEFAULT_MODELS_REPO)
-MODELS_REPO_REVISION = os.environ.get("SENTIMENT_MODELS_REVISION", "main")
+
+# The tokenizers and calibration files live in git, the weights on the Hub, and
+# the two only agree if they come from the same training run. Fetching whatever
+# is on the Hub's `main` branch would silently pair a newer publish with an
+# older tokenizer. So the Hub commit is pinned here, together with the sha256
+# of every fetched file, and both are checked by src/artifacts.py. Publishing
+# (scripts/publish_weights.py) rewrites the manifest, so the pin moves with the
+# weights and the two are committed together.
+REMOTE_MANIFEST = MODELS_DIR / "remote_manifest.json"
+
+
+def load_remote_manifest(path: Path = REMOTE_MANIFEST) -> dict | None:
+    """The committed manifest, or None when it is absent or unreadable."""
+    try:
+        with open(path, encoding="utf-8") as handle:
+            manifest = json.load(handle)
+    except (OSError, ValueError):
+        return None
+    return manifest if isinstance(manifest, dict) else None
+
+
+def resolve_models_revision(env_value: str | None, manifest: dict | None) -> str:
+    """Which Hub revision to fetch: the env var, else the manifest's pin, else main.
+
+    Falling back to ``main`` is the old, unpinned behaviour and is only a
+    convenience for a checkout with no manifest at all, so it is logged.
+    """
+    if env_value:
+        return env_value
+    if manifest and manifest.get("revision"):
+        return str(manifest["revision"])
+    LOGGER.warning(
+        "%s is missing or has no revision; fetching weights from the mutable "
+        "'main' branch, which may not match the committed tokenizers.",
+        REMOTE_MANIFEST.name,
+    )
+    return "main"
+
+
+MODELS_REPO_REVISION = resolve_models_revision(
+    os.environ.get("SENTIMENT_MODELS_REVISION"), load_remote_manifest()
+)
 
 # Files fetched from the Hub, relative to MODELS_DIR. The layout on the Hub
 # mirrors models/ exactly. Only what inference reads is listed: the recurrent
