@@ -40,21 +40,26 @@ def load_raw_dataset(name: str = DATASET_NAME, config: str = DATASET_CONFIG):
     return dataset
 
 
-def prepare_split(dataset, split: str) -> tuple[list[str], np.ndarray]:
-    """Return preprocessed texts and integer labels for one split."""
-    texts = [preprocess_tweet(text) for text in dataset[split]["text"]]
+def prepare_split(dataset, split: str, spec: str) -> tuple[list[str], np.ndarray]:
+    """Return texts normalised with preprocessing ``spec``, and integer labels.
+
+    The spec is required rather than defaulted so that no training run can
+    silently pick up the wrong one; pass ``config.TRAIN_PREPROCESSING[key]``.
+    """
+    texts = [preprocess_tweet(text, spec) for text in dataset[split]["text"]]
     labels = np.asarray(dataset[split]["label"], dtype=np.int64)
     return texts, labels
 
 
 def load_splits(
+    spec: str,
     splits: tuple[str, ...] = SPLITS,
     name: str = DATASET_NAME,
     config: str = DATASET_CONFIG,
 ) -> dict[str, tuple[list[str], np.ndarray]]:
     """Load the dataset and return ``{split: (texts, labels)}``."""
     dataset = load_raw_dataset(name=name, config=config)
-    return {split: prepare_split(dataset, split) for split in splits}
+    return {split: prepare_split(dataset, split, spec) for split in splits}
 
 
 def split_sizes(dataset) -> dict[str, int]:

@@ -25,11 +25,13 @@ from src.config import (
     NUM_LABELS,
     SEED,
     SEQUENCE_CONFIG,
+    TRAIN_PREPROCESSING,
     SequenceConfig,
 )
 from src.data import describe, load_raw_dataset, prepare_split
 from src.utils.io import save_json
 from src.utils.metrics import build_report, compute_metrics
+from src.utils.preprocessing import write_artifact_spec
 
 LOGGER = logging.getLogger(__name__)
 
@@ -123,15 +125,22 @@ def train_sequence_model(
     out_dir = MODEL_DIRS[key]
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    spec = TRAIN_PREPROCESSING[key]
     dataset = load_raw_dataset()
     splits = {
-        name: prepare_split(dataset, name) for name in ("train", "validation", "test")
+        name: prepare_split(dataset, name, spec)
+        for name in ("train", "validation", "test")
     }
     train_texts, train_labels = splits["train"]
 
-    LOGGER.info("Fitting tokenizer (max_vocab=%d)...", config.max_vocab)
+    LOGGER.info(
+        "Fitting tokenizer (max_vocab=%d, preprocessing=%s)...", config.max_vocab, spec
+    )
     tokenizer = fit_tokenizer(train_texts, config)
     joblib.dump(_portable(tokenizer), out_dir / "tokenizer.joblib")
+    # Recorded beside the tokenizer, because the tokenizer only fits text
+    # normalised this way; inference reads it back.
+    write_artifact_spec(key, spec)
 
     features = {
         name: texts_to_padded(tokenizer, texts, config.max_len)
@@ -218,6 +227,7 @@ def train_sequence_model(
         )
 
     hyperparameters = asdict(config)
+    hyperparameters["preprocessing"] = spec
     if coverage is not None:
         hyperparameters["pretrained_embedding_coverage"] = round(coverage, 4)
 

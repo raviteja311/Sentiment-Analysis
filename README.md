@@ -277,6 +277,13 @@ Training writes both the artifact and a metrics record to `reports/metrics/`.
 them, so the training provenance survives. Publish retrained weights with
 `make publish-weights` (needs `huggingface-cli login`).
 
+Preprocessing is versioned. Each model trains with the spec named for it in
+`TRAIN_PREPROCESSING` (`src/config.py`) and records it in
+`models/<key>/preprocessing.json`; serving reads that file, so a change to the
+training spec does not alter what an already trained model is shown. An
+artifact without the file was trained with `glove-v1`, the original behaviour.
+The specs themselves are in `src/utils/preprocessing.py`.
+
 TensorFlow has no native Windows GPU support from 2.11 onward, so the LSTM and
 GRU train on CPU there regardless of what hardware is present. The transformer
 uses CUDA when available and enables mixed precision automatically, which is

@@ -41,18 +41,19 @@ from src.config import (
     ROBERTA_CONFIG,
     ROBERTA_DIR,
     SEED,
+    TRAIN_PREPROCESSING,
 )
 from src.data import describe, load_raw_dataset
 from src.utils.io import save_json
 from src.utils.metrics import build_report, compute_metrics
-from src.utils.preprocessing import preprocess_tweet
+from src.utils.preprocessing import preprocess_tweet, write_artifact_spec
 
 LOGGER = logging.getLogger(__name__)
 
 
-def preprocess_examples(examples):
+def preprocess_examples(examples, spec: str):
     return {
-        "text": [preprocess_tweet(text) for text in examples["text"]],
+        "text": [preprocess_tweet(text, spec) for text in examples["text"]],
         "label": examples["label"],
     }
 
@@ -105,8 +106,9 @@ def main(config=ROBERTA_CONFIG):
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     ROBERTA_DIR.mkdir(parents=True, exist_ok=True)
 
+    spec = TRAIN_PREPROCESSING["roberta"]
     dataset = load_raw_dataset()
-    dataset = dataset.map(preprocess_examples, batched=True)
+    dataset = dataset.map(preprocess_examples, batched=True, fn_kwargs={"spec": spec})
 
     LOGGER.info("Loading tokenizer and model: %s", config.base_model)
     tokenizer = AutoTokenizer.from_pretrained(config.base_model, use_fast=True)
@@ -196,10 +198,11 @@ def main(config=ROBERTA_CONFIG):
     LOGGER.info("Saving model and tokenizer to %s", ROBERTA_DIR)
     trainer.save_model(str(ROBERTA_DIR))
     tokenizer.save_pretrained(str(ROBERTA_DIR))
+    write_artifact_spec("roberta", spec)
 
     report = build_report(
         model="roberta",
-        hyperparameters=asdict(config),
+        hyperparameters={**asdict(config), "preprocessing": spec},
         dataset=describe(dataset),
         metrics=metrics,
     )

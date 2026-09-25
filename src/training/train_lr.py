@@ -15,10 +15,11 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 
-from src.config import LR_CONFIG, LR_DIR, METRICS_DIR, SEED
+from src.config import LR_CONFIG, LR_DIR, METRICS_DIR, SEED, TRAIN_PREPROCESSING
 from src.data import describe, load_raw_dataset, prepare_split
 from src.utils.io import save_json
 from src.utils.metrics import build_report, compute_metrics
+from src.utils.preprocessing import write_artifact_spec
 
 OUT_DIR = LR_DIR
 
@@ -73,10 +74,11 @@ def main():
     # The shared loader and split preparation, so the dataset name comes from
     # config, the split sizes are logged like every other training run's, and
     # the text is preprocessed exactly as the other models see it.
+    spec = TRAIN_PREPROCESSING["lr"]
     ds = load_raw_dataset()
-    train_texts, train_labels = prepare_split(ds, "train")
-    val_texts, val_labels = prepare_split(ds, "validation")
-    test_texts, test_labels = prepare_split(ds, "test")
+    train_texts, train_labels = prepare_split(ds, "train", spec)
+    val_texts, val_labels = prepare_split(ds, "validation", spec)
+    test_texts, test_labels = prepare_split(ds, "test", spec)
 
     # Fitted directly. This used to go through GridSearchCV over a grid with
     # exactly one point, which fitted the same pipeline three times for cross-
@@ -99,12 +101,15 @@ def main():
     model_path = OUT_DIR / "pipeline.joblib"
     joblib.dump(best, model_path)
     print(f"Saved LR pipeline to: {model_path}")
+    # The vocabulary only matches text normalised this way; inference reads
+    # the spec back from beside the pipeline.
+    write_artifact_spec("lr", spec)
 
     # Metrics are written, not just printed. Printing them and throwing them
     # away is how the documented numbers ended up unverifiable.
     report = build_report(
         model="lr",
-        hyperparameters=asdict(LR_CONFIG),
+        hyperparameters={**asdict(LR_CONFIG), "preprocessing": spec},
         dataset=describe(ds),
         metrics=metrics,
     )

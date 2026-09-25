@@ -138,6 +138,7 @@ def _stub_predictor(forward):
     stub.key = "lr"
     stub.temperature = 1.0
     stub.version = None
+    stub.preprocessing = "glove-v1"
     stub._predict_proba = forward
     return stub
 
@@ -304,6 +305,66 @@ def test_empty_input_returns_an_empty_matrix():
 @requires_model("lr")
 def test_predictors_are_cached():
     assert load_predictor("lr") is load_predictor("lr")
+
+
+# --- the preprocessing spec ------------------------------------------------
+
+
+@requires_model("lr")
+def test_a_predictor_without_a_spec_file_uses_glove_v1(monkeypatch, tmp_path):
+    from src.utils import preprocessing
+
+    monkeypatch.setitem(preprocessing.MODEL_DIRS, "lr", tmp_path)
+    assert load_predictor("lr").preprocessing == "glove-v1"
+
+
+@requires_model("lr")
+def test_a_predictor_uses_the_spec_its_artifact_records(monkeypatch, tmp_path):
+    from src.utils import preprocessing
+
+    monkeypatch.setitem(preprocessing.MODEL_DIRS, "lr", tmp_path)
+    preprocessing.write_artifact_spec("lr", "glove-v2")
+    predictor = load_predictor("lr")
+    assert predictor.preprocessing == "glove-v2"
+
+    seen = []
+
+    def recording(text, spec):
+        seen.append(spec)
+        return preprocess_tweet(text, spec)
+
+    monkeypatch.setattr(predictor_module, "preprocess_tweet", recording)
+    predictor.predict("I can't stand it")
+    assert seen == ["glove-v2"]
+
+
+@requires_model("lr")
+def test_an_unreadable_spec_file_makes_the_model_unavailable(monkeypatch, tmp_path):
+    from src.utils import preprocessing
+
+    monkeypatch.setitem(preprocessing.MODEL_DIRS, "lr", tmp_path)
+    (tmp_path / "preprocessing.json").write_text("{not json", encoding="utf-8")
+    with pytest.raises(predictor_module.ModelUnavailableError) as excinfo:
+        load_predictor("lr")
+    assert "preprocessing.json" in str(excinfo.value)
+
+
+@requires_model("lr")
+def test_the_committed_lr_pipeline_still_scores_exactly_as_before():
+    # Captured before preprocessing was versioned. The committed pipeline has
+    # no preprocessing.json, so it must keep getting glove-v1 text and keep
+    # producing these numbers until it is retrained.
+    predictor = load_predictor("lr")
+    assert predictor.preprocessing == "glove-v1"
+    golden = {
+        "I like it": [0.4005378, 0.2354404, 0.3640219],
+        "this is fantastic": [0.1950378, 0.0464955, 0.7584667],
+        "absolutely awful, i hate it": [0.9945406, 0.0032681, 0.0021913],
+        "the meeting is at noon": [0.0634701, 0.5976223, 0.3389075],
+    }
+    for text, expected in golden.items():
+        probs = predictor.predict_proba([text])[0]
+        np.testing.assert_allclose(probs, expected, atol=1e-6)
 
 
 @requires_model("lr")

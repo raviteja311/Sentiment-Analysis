@@ -46,7 +46,7 @@ from src.config import (
     SEQUENCE_CONFIG,
     resolve_model,
 )
-from src.utils.preprocessing import preprocess_tweet
+from src.utils.preprocessing import artifact_spec, preprocess_tweet
 
 LOGGER = logging.getLogger(__name__)
 
@@ -268,6 +268,17 @@ class Predictor:
         # scaling is monotonic, so this never changes a predicted label.
         self.temperature = load_temperature(key) or 1.0
 
+        # Which text normalisation the artifact was trained with. Read from
+        # the artifact, not from config: config says what the next training
+        # run will use, and after a retrain the two differ until redeploy.
+        try:
+            self.preprocessing = artifact_spec(key)
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            raise ModelUnavailableError(
+                f"{_display_path(MODEL_DIRS[key])}/preprocessing.json is unreadable: "
+                f"{error}"
+            ) from error
+
         from src.inference.versioning import model_version
 
         self.version = model_version(key)
@@ -276,7 +287,7 @@ class Predictor:
         """Class probabilities, shape ``(len(texts), NUM_LABELS)``."""
         if not texts:
             return np.zeros((0, NUM_LABELS), dtype=np.float32)
-        cleaned = [preprocess_tweet(text) for text in texts]
+        cleaned = [preprocess_tweet(text, self.preprocessing) for text in texts]
         with _inference_slot():
             probs = np.asarray(self._predict_proba(cleaned), dtype=np.float32)
         if probs.shape != (len(texts), NUM_LABELS):

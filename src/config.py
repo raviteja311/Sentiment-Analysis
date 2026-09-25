@@ -172,6 +172,17 @@ REMOTE_ARTIFACTS: dict[str, tuple[str, ...]] = {
     "roberta": ("roberta/model.safetensors",),
 }
 
+# Which preprocessing spec each model is trained with from now on; the specs
+# themselves live in src/utils/preprocessing.py. Used only by training. Serving
+# reads the spec an artifact records beside its weights, so this can change
+# without altering what the shipped models see until they are retrained.
+TRAIN_PREPROCESSING: dict[str, str] = {
+    "lr": "glove-v2",
+    "lstm": "glove-v2",
+    "gru": "glove-v2",
+    "roberta": "cardiff-v1",
+}
+
 # Shown in the error message when an artifact is missing or is an LFS stub.
 RETRAIN_COMMANDS: dict[str, str] = {
     "lr": "python -m src.training.train_lr",

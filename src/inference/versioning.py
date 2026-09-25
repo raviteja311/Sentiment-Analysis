@@ -68,9 +68,13 @@ def versioned_files(model: str) -> list[Path]:
     """Files whose contents determine what this model outputs."""
     model = resolve_model(model)
     files = list(REQUIRED_ARTIFACTS[model])
-    calibration = MODEL_DIRS[model] / "calibration.json"
-    if calibration.exists():
-        files.append(calibration)
+    # The calibration temperature changes the confidence a caller sees, and
+    # the preprocessing spec changes what the model is shown; both belong to
+    # the version even though the weights are identical.
+    for name in ("calibration.json", "preprocessing.json"):
+        path = MODEL_DIRS[model] / name
+        if path.exists():
+            files.append(path)
     return files
 
 

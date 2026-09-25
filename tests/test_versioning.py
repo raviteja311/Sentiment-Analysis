@@ -105,6 +105,18 @@ def test_version_changes_when_calibration_changes(fake_model):
     assert versioning.model_version("lstm") != before
 
 
+def test_the_preprocessing_spec_is_part_of_the_version(fake_model):
+    directory, _ = fake_model
+    before = versioning.model_version("lstm")
+    (directory / "preprocessing.json").write_text(
+        '{"spec": "glove-v2"}', encoding="utf-8"
+    )
+    assert directory / "preprocessing.json" in versioning.versioned_files("lstm")
+    # A retrained model shown different text is a different model, even if
+    # the weights file happened to hash the same.
+    assert versioning.model_version("lstm") != before
+
+
 def test_calibration_is_part_of_the_version(fake_model):
     directory, _ = fake_model
     (directory / "calibration.json").write_text('{"temperature": 2.0}', encoding="utf-8")
