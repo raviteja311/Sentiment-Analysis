@@ -23,12 +23,14 @@ COPY requirements/ requirements/
 
 # The default PyPI torch wheel bundles CUDA and costs several gigabytes. The
 # CPU index gives the same API in a fraction of the size, which matters for an
-# image whose whole job is to answer HTTP requests on a CPU node.
+# image whose whole job is to answer HTTP requests on a CPU node. The lock
+# pins the transitive closure too, so two builds a month apart get the same
+# starlette, not whichever one PyPI had that day.
 RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install --upgrade pip \
     && /opt/venv/bin/pip install \
         --extra-index-url https://download.pytorch.org/whl/cpu \
-        -r requirements/inference-cpu.txt
+        -r requirements/inference-cpu.lock
 
 
 FROM base AS cpu

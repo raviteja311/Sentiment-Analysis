@@ -9,3 +9,6 @@ httpx==0.28.1
 
 ruff==0.16.8
 black==26.5.1
+
+# Produces requirements/*.lock; see `make lock`.
+uv==0.12.19

@@ -2,7 +2,7 @@ PYTHON ?= python
 IMAGE ?= sentiment-analysis-api:local
 PORT ?= 8000
 
-.PHONY: help install install-dev install-train api ui test lint format \
+.PHONY: help install install-dev install-train lock api ui test lint format \
         fetch-weights publish-weights \
         train-lr train-lstm train-gru train-roberta evaluate calibrate behaviour \
         experiments \
@@ -13,18 +13,39 @@ help:  ## Show this help
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  %-16s %s\n", $$1, $$2}'
 
 # --- environment -----------------------------------------------------------
+#
+# requirements/*.txt name the direct dependencies; requirements/*.lock pin the
+# whole closure, transitive packages included, and are what gets installed.
+# Edit a .txt, then `make lock` to regenerate the locks and commit both.
 
 install:  ## Install the CPU inference stack
 	$(PYTHON) -m pip install --extra-index-url https://download.pytorch.org/whl/cpu \
-		-r requirements/inference-cpu.txt
+		-r requirements/inference-cpu.lock
 
 install-dev:  ## Install the inference stack plus test and lint tooling
 	$(PYTHON) -m pip install --extra-index-url https://download.pytorch.org/whl/cpu \
-		-r requirements/dev.txt
+		-r requirements/dev.lock
 
 install-train:  ## Install everything needed to retrain
 	$(PYTHON) -m pip install --extra-index-url https://download.pytorch.org/whl/cpu \
-		-r requirements/train.txt
+		-r requirements/train.lock
+
+# --universal resolves for every platform at once, with markers, so one lock
+# serves Linux, Windows and macOS: torch comes from the CPU index as +cpu
+# where that wheel exists and plain elsewhere. --index-strategy
+# unsafe-best-match is what lets a package be taken from the extra index when
+# its best version lives there.
+LOCK_FLAGS = --universal --python-version 3.11 \
+	--extra-index-url https://download.pytorch.org/whl/cpu \
+	--index-strategy unsafe-best-match --emit-index-url --no-annotate
+
+lock:  ## Regenerate requirements/*.lock from requirements/*.txt (needs uv, in dev.txt)
+	$(PYTHON) -m uv pip compile requirements/inference-cpu.txt $(LOCK_FLAGS) \
+		--output-file requirements/inference-cpu.lock
+	$(PYTHON) -m uv pip compile requirements/train.txt $(LOCK_FLAGS) \
+		--output-file requirements/train.lock
+	$(PYTHON) -m uv pip compile requirements/dev.txt $(LOCK_FLAGS) \
+		--output-file requirements/dev.lock
 
 # --- run -------------------------------------------------------------------
 
