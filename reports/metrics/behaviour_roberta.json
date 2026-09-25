@@ -1,0 +1,45 @@
+{
+  "checks": {
+    "negation flips the label": {
+      "passed": 5,
+      "total": 5,
+      "pass_rate": 1.0,
+      "failures": []
+    },
+    "entities read as what they encode": {
+      "passed": 3,
+      "total": 3,
+      "pass_rate": 1.0,
+      "failures": []
+    },
+    "emoji carry sentiment": {
+      "passed": 4,
+      "total": 4,
+      "pass_rate": 1.0,
+      "failures": []
+    },
+    "mention invariance": {
+      "passed": 3,
+      "total": 3,
+      "pass_rate": 1.0,
+      "failures": []
+    },
+    "url invariance": {
+      "passed": 3,
+      "total": 3,
+      "pass_rate": 1.0,
+      "failures": []
+    }
+  },
+  "passed": 18,
+  "total": 18,
+  "pass_rate": 1.0,
+  "model": "roberta",
+  "version": "735b42b170ac",
+  "checked_at": "2026-09-25T10:27:26+00:00",
+  "labels": [
+    "negative",
+    "neutral",
+    "positive"
+  ]
+}

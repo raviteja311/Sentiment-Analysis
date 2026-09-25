@@ -4,7 +4,7 @@ PORT ?= 8000
 
 .PHONY: help install install-dev install-train api ui test lint format \
         fetch-weights publish-weights \
-        train-lr train-lstm train-gru train-roberta evaluate calibrate \
+        train-lr train-lstm train-gru train-roberta evaluate calibrate behaviour \
         docker-build docker-run clean
 
 help:  ## Show this help
@@ -73,6 +73,9 @@ evaluate:  ## Score every available model and print the README table
 
 calibrate:  ## Fit temperature scaling so confidence scores mean something
 	$(PYTHON) -m src.calibration
+
+behaviour:  ## Run the behavioural checks (a report, not a gate)
+	$(PYTHON) -m src.behaviour
 
 # --- containers ------------------------------------------------------------
 

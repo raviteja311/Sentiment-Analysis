@@ -1,0 +1,57 @@
+{
+  "checks": {
+    "negation flips the label": {
+      "passed": 5,
+      "total": 5,
+      "pass_rate": 1.0,
+      "failures": []
+    },
+    "entities read as what they encode": {
+      "passed": 2,
+      "total": 3,
+      "pass_rate": 0.6666666666666666,
+      "failures": [
+        {
+          "text": "<3 this song",
+          "expected": "positive",
+          "label": "neutral"
+        }
+      ]
+    },
+    "emoji carry sentiment": {
+      "passed": 3,
+      "total": 4,
+      "pass_rate": 0.75,
+      "failures": [
+        {
+          "text": "what a day \ud83d\ude21",
+          "expected": "negative",
+          "label": "neutral"
+        }
+      ]
+    },
+    "mention invariance": {
+      "passed": 3,
+      "total": 3,
+      "pass_rate": 1.0,
+      "failures": []
+    },
+    "url invariance": {
+      "passed": 3,
+      "total": 3,
+      "pass_rate": 1.0,
+      "failures": []
+    }
+  },
+  "passed": 16,
+  "total": 18,
+  "pass_rate": 0.8888888888888888,
+  "model": "gru",
+  "version": "95521bc1b38c",
+  "checked_at": "2026-09-25T10:27:18+00:00",
+  "labels": [
+    "negative",
+    "neutral",
+    "positive"
+  ]
+}

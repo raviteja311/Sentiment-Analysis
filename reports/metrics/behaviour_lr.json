@@ -1,0 +1,81 @@
+{
+  "checks": {
+    "negation flips the label": {
+      "passed": 2,
+      "total": 5,
+      "pass_rate": 0.4,
+      "failures": [
+        {
+          "text": "I like it",
+          "other": "I don't like it",
+          "labels": [
+            "negative",
+            "negative"
+          ]
+        },
+        {
+          "text": "the service was great",
+          "other": "the service wasn't great",
+          "labels": [
+            "positive",
+            "positive"
+          ]
+        },
+        {
+          "text": "I'm happy with the update",
+          "other": "I'm not happy with the update",
+          "labels": [
+            "positive",
+            "positive"
+          ]
+        }
+      ]
+    },
+    "entities read as what they encode": {
+      "passed": 3,
+      "total": 3,
+      "pass_rate": 1.0,
+      "failures": []
+    },
+    "emoji carry sentiment": {
+      "passed": 2,
+      "total": 4,
+      "pass_rate": 0.5,
+      "failures": [
+        {
+          "text": "this is \ud83d\ude0d",
+          "expected": "positive",
+          "label": "neutral"
+        },
+        {
+          "text": "what a day \ud83d\ude21",
+          "expected": "negative",
+          "label": "neutral"
+        }
+      ]
+    },
+    "mention invariance": {
+      "passed": 3,
+      "total": 3,
+      "pass_rate": 1.0,
+      "failures": []
+    },
+    "url invariance": {
+      "passed": 3,
+      "total": 3,
+      "pass_rate": 1.0,
+      "failures": []
+    }
+  },
+  "passed": 13,
+  "total": 18,
+  "pass_rate": 0.7222222222222222,
+  "model": "lr",
+  "version": "b252de109a85",
+  "checked_at": "2026-09-25T10:27:09+00:00",
+  "labels": [
+    "negative",
+    "neutral",
+    "positive"
+  ]
+}

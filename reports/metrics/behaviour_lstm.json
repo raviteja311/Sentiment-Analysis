@@ -1,0 +1,74 @@
+{
+  "checks": {
+    "negation flips the label": {
+      "passed": 3,
+      "total": 5,
+      "pass_rate": 0.6,
+      "failures": [
+        {
+          "text": "the service was great",
+          "other": "the service wasn't great",
+          "labels": [
+            "positive",
+            "positive"
+          ]
+        },
+        {
+          "text": "I'm happy with the update",
+          "other": "I'm not happy with the update",
+          "labels": [
+            "positive",
+            "positive"
+          ]
+        }
+      ]
+    },
+    "entities read as what they encode": {
+      "passed": 2,
+      "total": 3,
+      "pass_rate": 0.6666666666666666,
+      "failures": [
+        {
+          "text": "<3 this song",
+          "expected": "positive",
+          "label": "neutral"
+        }
+      ]
+    },
+    "emoji carry sentiment": {
+      "passed": 3,
+      "total": 4,
+      "pass_rate": 0.75,
+      "failures": [
+        {
+          "text": "what a day \ud83d\ude21",
+          "expected": "negative",
+          "label": "neutral"
+        }
+      ]
+    },
+    "mention invariance": {
+      "passed": 3,
+      "total": 3,
+      "pass_rate": 1.0,
+      "failures": []
+    },
+    "url invariance": {
+      "passed": 3,
+      "total": 3,
+      "pass_rate": 1.0,
+      "failures": []
+    }
+  },
+  "passed": 14,
+  "total": 18,
+  "pass_rate": 0.7777777777777778,
+  "model": "lstm",
+  "version": "02817a7de692",
+  "checked_at": "2026-09-25T10:27:16+00:00",
+  "labels": [
+    "negative",
+    "neutral",
+    "positive"
+  ]
+}

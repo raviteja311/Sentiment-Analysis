@@ -271,7 +271,14 @@ make train-roberta   # ~2h15m on a GTX 1650 with mixed precision
 make evaluate        # scores every available model, regenerates the table above
 python -m src.evaluate --include-base   # also the base checkpoint, not fine-tuned
 make calibrate       # refits temperature scaling after retraining
+make behaviour       # CheckList-style probes: negation, entities, emoji, invariances
 ```
+
+`make behaviour` asks targeted questions the aggregate metrics cannot: does
+negating a sentence change its label, does swapping one username or URL for
+another leave it alone, does a heart read as positive. It prints a pass rate
+per check and writes `reports/metrics/behaviour_<model>.json`. It is a report,
+not a CI gate, because model behaviour can be measured but not guaranteed.
 
 Training writes both the artifact and a metrics record to `reports/metrics/`.
 `make evaluate` merges its results into those records rather than replacing
