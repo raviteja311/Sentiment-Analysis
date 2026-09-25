@@ -67,12 +67,16 @@ Requires **Python 3.12** (3.11 is also covered by CI).
 git clone https://github.com/raviteja311/Sentiment-Analysis.git
 cd Sentiment-Analysis
 python -m venv .venv && .venv/Scripts/activate   # Linux/macOS: source .venv/bin/activate
-pip install -r requirements/inference-cpu.txt
+pip install --extra-index-url https://download.pytorch.org/whl/cpu \
+    -r requirements/inference-cpu.txt            # or: make install
 make fetch-weights                               # 564 MB, see Weights below
 ```
 
-For a CPU-sized PyTorch install, add
-`--extra-index-url https://download.pytorch.org/whl/cpu`.
+Keep the `--extra-index-url`. Without it pip downloads the default PyTorch
+wheel, which bundles CUDA and pulls in several gigabytes of NVIDIA libraries
+that a CPU install never uses. On macOS and Linux ARM the requirements file
+selects the plain `tensorflow` package automatically, because `tensorflow-cpu`
+has no wheels for those platforms.
 
 ### Weights
 

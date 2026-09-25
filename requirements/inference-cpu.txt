@@ -5,7 +5,13 @@
 
 # Keras 3.12.0 is the version that wrote models/lstm/*.keras and
 # models/gru/*.keras (see the "keras_version" field inside those archives).
-tensorflow-cpu==2.21.0
+#
+# tensorflow-cpu publishes wheels for Linux x86_64 and Windows only. On macOS
+# (Intel and Apple silicon) and on Linux ARM the plain tensorflow package is
+# the CPU build, so the markers pick whichever one has a wheel for the machine;
+# without them, `pip install` on a Mac failed to resolve at all.
+tensorflow-cpu==2.21.0; sys_platform != "darwin" and platform_machine != "aarch64"
+tensorflow==2.21.0; sys_platform == "darwin" or platform_machine == "aarch64"
 keras==3.12.0
 
 # The default PyPI torch wheel bundles CUDA. For a CPU-sized install use:
