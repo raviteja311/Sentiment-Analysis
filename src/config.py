@@ -172,6 +172,16 @@ REMOTE_ARTIFACTS: dict[str, tuple[str, ...]] = {
     "roberta": ("roberta/model.safetensors",),
 }
 
+# Evaluation-only baseline: the transformer's base checkpoint exactly as
+# published, without our fine-tuning. That checkpoint was itself fine-tuned on
+# TweetEval sentiment, so the results table needs its score to show whether
+# our training run adds anything. It is deliberately not in MODEL_KEYS, so
+# neither the API nor the UI can serve it; only `python -m src.evaluate
+# --include-base` touches it.
+BASELINE_KEY = "roberta_base"
+BASELINE_DISPLAY_NAME = "Twitter-RoBERTa (base, not fine-tuned)"
+BASELINE_PREPROCESSING = "cardiff-v1"
+
 # Which preprocessing spec each model is trained with from now on; the specs
 # themselves live in src/utils/preprocessing.py. Used only by training. Serving
 # reads the spec an artifact records beside its weights, so this can change

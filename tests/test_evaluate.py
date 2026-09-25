@@ -203,6 +203,156 @@ def test_table_formats_scores_to_four_decimals(sample_report):
     assert "0.8333" in evaluate.markdown_table([sample_report])
 
 
+# --- the untouched base checkpoint ------------------------------------------
+#
+# The transformer's base checkpoint is already fine-tuned on TweetEval, so its
+# score is the bar our fine-tuning has to clear. It is evaluated, never served.
+
+
+def test_the_baseline_is_not_a_servable_model():
+    from src.config import BASELINE_KEY, MODEL_KEYS
+    from src.inference.predictor import check_artifacts, load_predictor
+
+    assert BASELINE_KEY not in MODEL_KEYS
+    with pytest.raises(KeyError):
+        check_artifacts(BASELINE_KEY)
+    with pytest.raises(KeyError):
+        load_predictor(BASELINE_KEY)
+
+
+def test_the_api_refuses_the_baseline(api_client):
+    from src.config import BASELINE_KEY
+
+    response = api_client.post("/predict", json={"text": "hi", "model": BASELINE_KEY})
+    assert response.status_code == 422
+
+
+class _StubBaseline:
+    key = "roberta_base"
+
+    def predict_proba(self, texts):
+        import numpy as np
+
+        return np.tile([0.1, 0.2, 0.7], (len(texts), 1))
+
+
+def test_include_base_scores_the_baseline_and_writes_its_record(monkeypatch, tmp_path):
+    from src.config import BASELINE_DISPLAY_NAME, BASELINE_KEY, ROBERTA_CONFIG
+
+    monkeypatch.setattr(evaluate, "METRICS_DIR", tmp_path)
+    monkeypatch.setattr(evaluate, "baseline_predictor", _StubBaseline)
+    monkeypatch.setattr(evaluate, "available_models", lambda: [])
+    monkeypatch.setattr(
+        evaluate,
+        "load_raw_dataset",
+        lambda: {"test": {"text": ["a", "b"], "label": [2, 0]}},
+    )
+
+    reports = evaluate.evaluate_models(None, include_base=True)
+
+    assert [report["model"] for report in reports] == [BASELINE_KEY]
+    record = load_json(tmp_path / f"{BASELINE_KEY}.json")
+    assert record["display_name"] == BASELINE_DISPLAY_NAME
+    assert record["hyperparameters"] == {
+        "base_model": ROBERTA_CONFIG.base_model,
+        "preprocessing": "cardiff-v1",
+        "fine_tuned": False,
+    }
+    assert record["metrics"]["test"]["accuracy"] == 0.5
+
+
+def test_the_baseline_is_off_by_default(monkeypatch):
+    monkeypatch.setattr(evaluate, "available_models", lambda: [])
+    touched = []
+    monkeypatch.setattr(evaluate, "load_raw_dataset", lambda: touched.append(1))
+    assert evaluate.evaluate_models(None) == []
+    assert touched == []
+
+
+def test_an_unreachable_hub_skips_the_baseline_rather_than_crashing(monkeypatch, caplog):
+    def offline():
+        raise OSError("no network")
+
+    monkeypatch.setattr(evaluate, "baseline_predictor", offline)
+    monkeypatch.setattr(evaluate, "available_models", lambda: [])
+    monkeypatch.setattr(
+        evaluate, "load_raw_dataset", lambda: {"test": {"text": ["a"], "label": [0]}}
+    )
+    assert evaluate.evaluate_models(None, include_base=True) == []
+    assert "Skipping roberta_base" in caplog.text
+
+
+def test_the_cli_exposes_include_base(monkeypatch):
+    seen = {}
+
+    def fake(models, split, batch_size, include_base):
+        seen["include_base"] = include_base
+        return []
+
+    monkeypatch.setattr(evaluate, "evaluate_models", fake)
+    evaluate.main(["--include-base"])
+    assert seen == {"include_base": True}
+
+
+def test_the_table_names_the_baseline_as_not_fine_tuned(monkeypatch, tmp_path):
+    from src.config import BASELINE_DISPLAY_NAME, BASELINE_KEY
+
+    monkeypatch.setattr(evaluate, "METRICS_DIR", tmp_path)
+    record = build_report(
+        model=BASELINE_KEY,
+        hyperparameters={},
+        dataset={},
+        metrics={"test": compute_metrics([0, 1, 2], [0, 1, 2])},
+        display_name=BASELINE_DISPLAY_NAME,
+    )
+    save_json(record, tmp_path / f"{BASELINE_KEY}.json")
+
+    # Included without being asked for, once its record exists.
+    reports = evaluate.load_reports()
+    assert [r["model"] for r in reports] == [BASELINE_KEY]
+    assert BASELINE_DISPLAY_NAME in evaluate.markdown_table(reports)
+
+
+def test_the_baseline_predictor_loads_the_base_checkpoint_with_its_own_preprocessing(
+    monkeypatch,
+):
+    transformers = pytest.importorskip("transformers")
+    from src.config import BASELINE_DISPLAY_NAME, BASELINE_KEY, ROBERTA_CONFIG
+
+    calls = []
+
+    class FakeTokenizer:
+        @classmethod
+        def from_pretrained(cls, name, **kwargs):
+            calls.append(("tokenizer", name))
+            return cls()
+
+    class FakeModel:
+        @classmethod
+        def from_pretrained(cls, name, **kwargs):
+            calls.append(("model", name))
+            return cls()
+
+        def to(self, device):
+            return self
+
+        def eval(self):
+            return self
+
+    monkeypatch.setattr(transformers, "AutoTokenizer", FakeTokenizer)
+    monkeypatch.setattr(transformers, "AutoModelForSequenceClassification", FakeModel)
+
+    predictor = evaluate.BaselinePredictor(device="cpu")
+
+    base = ROBERTA_CONFIG.base_model
+    assert calls == [("tokenizer", base), ("model", base)]
+    assert predictor.key == BASELINE_KEY
+    assert predictor.display_name == BASELINE_DISPLAY_NAME
+    assert predictor.preprocessing == "cardiff-v1"
+    assert predictor.temperature == 1.0
+    assert predictor.version == base
+
+
 # --- scoring a real artifact ----------------------------------------------
 
 

@@ -269,6 +269,7 @@ make train-lstm      # ~6 min, CPU
 make train-gru       # ~6 min, CPU
 make train-roberta   # ~2h15m on a GTX 1650 with mixed precision
 make evaluate        # scores every available model, regenerates the table above
+python -m src.evaluate --include-base   # also the base checkpoint, not fine-tuned
 make calibrate       # refits temperature scaling after retraining
 ```
 

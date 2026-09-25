@@ -33,7 +33,7 @@ def compute_metrics(y_true, y_pred):
     }
 
 
-def build_report(model, hyperparameters, dataset, metrics):
+def build_report(model, hyperparameters, dataset, metrics, display_name=None):
     """Assemble the JSON record written to reports/metrics/<model>.json.
 
     Scores on their own are not evidence: the same model scores differently on
@@ -44,7 +44,7 @@ def build_report(model, hyperparameters, dataset, metrics):
     """
     return {
         "model": model,
-        "display_name": MODEL_DISPLAY_NAMES.get(model, model),
+        "display_name": display_name or MODEL_DISPLAY_NAMES.get(model, model),
         "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "hyperparameters": hyperparameters,
         "dataset": dataset,

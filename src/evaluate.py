@@ -5,6 +5,7 @@ Run it as a module::
     python -m src.evaluate                      # every available model, test split
     python -m src.evaluate --models lr lstm
     python -m src.evaluate --split validation
+    python -m src.evaluate --include-base       # also the untouched base checkpoint
     python -m src.evaluate --table-only         # re-print the table, evaluate nothing
 
 Each run writes reports/metrics/<model>.json and prints a Markdown table meant to
@@ -25,17 +26,22 @@ from datetime import UTC, datetime
 import numpy as np
 
 from src.config import (
+    BASELINE_DISPLAY_NAME,
+    BASELINE_KEY,
+    BASELINE_PREPROCESSING,
     DATASET_CONFIG,
     DATASET_NAME,
     LABELS,
     METRICS_DIR,
     MODEL_ALIASES,
     MODEL_KEYS,
+    ROBERTA_CONFIG,
     resolve_model,
 )
 from src.data import class_distribution, load_raw_dataset
 from src.inference.predictor import (
     ModelUnavailableError,
+    RobertaPredictor,
     available_models,
     check_artifacts,
     load_predictor,
@@ -48,6 +54,57 @@ LOGGER = logging.getLogger(__name__)
 DEFAULT_SPLIT = "test"
 DEFAULT_BATCH_SIZE = 64
 
+# What the baseline's record says about itself, in place of the training
+# hyperparameters a model trained here would carry.
+BASELINE_HYPERPARAMETERS = {
+    "base_model": ROBERTA_CONFIG.base_model,
+    "preprocessing": BASELINE_PREPROCESSING,
+    "fine_tuned": False,
+}
+
+
+class BaselinePredictor(RobertaPredictor):
+    """The base checkpoint straight from the Hub, for evaluation only.
+
+    Deliberately bypasses ``Predictor.__init__``: there are no local artifacts
+    to check, no calibration file and no version to digest. It is not
+    registered with ``load_predictor`` and its key is not in ``MODEL_KEYS``,
+    so nothing that serves predictions can reach it.
+    """
+
+    def __init__(self, batch_size: int = 16, device: str | None = None) -> None:
+        import torch
+        from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+        self.key = BASELINE_KEY
+        self.display_name = BASELINE_DISPLAY_NAME
+        self.temperature = 1.0
+        # The preprocessing the checkpoint was trained with, not ours.
+        self.preprocessing = BASELINE_PREPROCESSING
+        self.version = ROBERTA_CONFIG.base_model
+
+        self._torch = torch
+        self._batch_size = batch_size
+        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        base = ROBERTA_CONFIG.base_model
+        self._tokenizer = AutoTokenizer.from_pretrained(base, use_fast=True)
+        # The checkpoint's config only has LABEL_0/1/2; its model card maps
+        # them to negative, neutral, positive, the same order as LABELS.
+        self._model = AutoModelForSequenceClassification.from_pretrained(base)
+        self._model.to(self.device)
+        self._model.eval()
+
+
+def baseline_predictor() -> BaselinePredictor:
+    return BaselinePredictor()
+
+
+def predictor_for(model: str):
+    """The predictor to score ``model`` with: the baseline, or a served model."""
+    if model == BASELINE_KEY:
+        return baseline_predictor()
+    return load_predictor(model)
+
 
 def evaluate_predictions(model: str, texts, labels, batch_size=DEFAULT_BATCH_SIZE):
     """Score one model against labelled texts.
@@ -55,7 +112,7 @@ def evaluate_predictions(model: str, texts, labels, batch_size=DEFAULT_BATCH_SIZ
     ``texts`` must be raw: the predictor applies the same preprocessing the
     model was trained with, so preprocessing here as well would apply it twice.
     """
-    predictor = load_predictor(model)
+    predictor = predictor_for(model)
     labels = np.asarray(labels)
 
     probabilities = []
@@ -94,6 +151,9 @@ def update_record(model: str, split: str, metrics: dict, labels, batch_size: int
     sizes and the class distribution the model was fitted on. An evaluation adds
     a measurement to it; it must not overwrite it, or the provenance behind a
     published number disappears the first time anyone runs the evaluation.
+
+    The baseline has no training record here, so its first evaluation creates
+    one that says what it is: the base checkpoint, not fine-tuned.
     """
     evaluation = {
         "split": split,
@@ -113,11 +173,13 @@ def update_record(model: str, split: str, metrics: dict, labels, batch_size: int
     # No training record: this model was trained elsewhere, or the reports
     # directory was cleaned. Say so rather than implying hyperparameters we
     # cannot know.
+    is_baseline = model == BASELINE_KEY
     record = build_report(
         model=model,
-        hyperparameters={},
+        hyperparameters=BASELINE_HYPERPARAMETERS if is_baseline else {},
         dataset={"name": DATASET_NAME, "config": DATASET_CONFIG},
         metrics={split: metrics},
+        display_name=BASELINE_DISPLAY_NAME if is_baseline else None,
     )
     record["evaluation"] = evaluation
     return record
@@ -127,8 +189,12 @@ def evaluate_models(
     models: list[str] | None = None,
     split: str = DEFAULT_SPLIT,
     batch_size: int = DEFAULT_BATCH_SIZE,
+    include_base: bool = False,
 ) -> list[dict]:
-    """Evaluate several models, skipping any whose artifacts are unavailable."""
+    """Evaluate several models, skipping any whose artifacts are unavailable.
+
+    ``include_base`` adds the untouched base checkpoint, fetched from the Hub.
+    """
     requested = [resolve_model(m) for m in models] if models else available_models()
 
     # Filter before touching the dataset, as src.calibration does: on a fresh
@@ -141,6 +207,9 @@ def evaluate_models(
             LOGGER.warning("Skipping %s: %s", model, reason)
             continue
         usable.append(model)
+    if include_base:
+        # Nothing local to check: the checkpoint comes from the Hub on load.
+        usable.append(BASELINE_KEY)
 
     if not usable:
         LOGGER.warning("No usable models. Run `make fetch-weights` first.")
@@ -154,15 +223,20 @@ def evaluate_models(
             reports.append(
                 evaluate_model(model, split, batch_size=batch_size, dataset=dataset)
             )
-        except ModelUnavailableError as error:
+        # OSError is what transformers raises when the Hub is unreachable.
+        except (ModelUnavailableError, OSError) as error:
             LOGGER.warning("Skipping %s: %s", model, error)
     return reports
 
 
 def load_reports(models: list[str] | None = None) -> list[dict]:
-    """Read previously written metrics records from reports/metrics/."""
+    """Read previously written metrics records from reports/metrics/.
+
+    The baseline's record is included by default when it exists, so the table
+    shows it beside the fine-tuned model without being asked.
+    """
     reports = []
-    for model in models or MODEL_KEYS:
+    for model in models or [*MODEL_KEYS, BASELINE_KEY]:
         path = METRICS_DIR / f"{model}.json"
         if path.exists():
             reports.append(load_json(path))
@@ -254,6 +328,14 @@ def main(argv=None) -> int:
     parser.add_argument("--split", default=DEFAULT_SPLIT)
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
     parser.add_argument(
+        "--include-base",
+        action="store_true",
+        help=(
+            f"also score {ROBERTA_CONFIG.base_model} as published, without our "
+            "fine-tuning (downloads it from the Hub)"
+        ),
+    )
+    parser.add_argument(
         "--table-only",
         action="store_true",
         help="print the table from existing reports without evaluating",
@@ -265,7 +347,9 @@ def main(argv=None) -> int:
     if args.table_only:
         reports = load_reports(args.models)
     else:
-        reports = evaluate_models(args.models, args.split, args.batch_size)
+        reports = evaluate_models(
+            args.models, args.split, args.batch_size, include_base=args.include_base
+        )
 
     print()
     print(markdown_table(reports))
