@@ -115,12 +115,16 @@ MODELS_REPO = os.environ.get("SENTIMENT_MODELS_REPO", DEFAULT_MODELS_REPO)
 MODELS_REPO_REVISION = os.environ.get("SENTIMENT_MODELS_REVISION", "main")
 
 # Files fetched from the Hub, relative to MODELS_DIR. The layout on the Hub
-# mirrors models/ exactly.
+# mirrors models/ exactly. Only what inference reads is listed: the recurrent
+# models' best.keras is the early-stopping checkpoint that model_final.keras
+# already supersedes, and the transformer's training_args.bin is a pickle of
+# the Trainer's arguments. Both still exist on the Hub; they are just not
+# worth 80 MB of download and a pickle load on every fresh clone.
 REMOTE_ARTIFACTS: dict[str, tuple[str, ...]] = {
     "lr": (),
-    "lstm": ("lstm/model_final.keras", "lstm/best.keras"),
-    "gru": ("gru/model_final.keras", "gru/best.keras"),
-    "roberta": ("roberta/model.safetensors", "roberta/training_args.bin"),
+    "lstm": ("lstm/model_final.keras",),
+    "gru": ("gru/model_final.keras",),
+    "roberta": ("roberta/model.safetensors",),
 }
 
 # Shown in the error message when an artifact is missing or is an LFS stub.

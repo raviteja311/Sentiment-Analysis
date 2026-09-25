@@ -69,7 +69,7 @@ cd Sentiment-Analysis
 python -m venv .venv && .venv/Scripts/activate   # Linux/macOS: source .venv/bin/activate
 pip install --extra-index-url https://download.pytorch.org/whl/cpu \
     -r requirements/inference-cpu.txt            # or: make install
-make fetch-weights                               # 564 MB, see Weights below
+make fetch-weights                               # 574 MB, see Weights below
 ```
 
 Keep the `--extra-index-url`. Without it pip downloads the default PyTorch
@@ -85,7 +85,7 @@ The large weights are **not in git**. They live on the Hugging Face Hub at
 and are fetched on demand:
 
 ```bash
-make fetch-weights                        # all of them, 564 MB
+make fetch-weights                        # all of them, 574 MB
 python -m src.artifacts --models lstm     # or just one
 ```
 

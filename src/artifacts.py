@@ -1,6 +1,6 @@
 """Fetch the large model weights from object storage.
 
-The transformer's weights are 498 MB and the four Keras files another 66 MB.
+The transformer's weights are 499 MB and the two Keras files another 75 MB.
 Kept in Git LFS they are paid for on every clone, fork and CI checkout, and a
 clone without `git lfs pull` gets 133-byte pointer stubs instead of models. They
 live on the Hugging Face Hub instead, and are downloaded on demand::

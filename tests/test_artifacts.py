@@ -17,6 +17,15 @@ def test_only_large_weights_are_remote():
     assert all(name.endswith((".keras", ".safetensors", ".bin")) for name in remote)
 
 
+def test_training_only_files_are_not_fetched():
+    # best.keras is the early-stopping checkpoint that model_final.keras
+    # supersedes, and training_args.bin is a pickle of the Trainer's arguments.
+    # Inference reads neither, so a fresh clone should not pay for them.
+    remote = artifacts.remote_files()
+    assert not any(name.endswith("best.keras") for name in remote)
+    assert "roberta/training_args.bin" not in remote
+
+
 def test_the_linear_model_is_not_remote():
     # Its pipeline is ~600 KB and stays in git, so a plain clone can still serve
     # predictions without fetching anything.
