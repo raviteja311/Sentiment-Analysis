@@ -4,6 +4,10 @@
 #
 # Both services mount ./models read-only, so swapping in a retrained artifact
 # does not mean rebuilding a multi-gigabyte image.
+#
+# The two services are independent. The UI loads the models in-process through
+# the same predictor layer as the API and never calls it, so neither waits for
+# the other, and running both means every model is loaded twice.
 
 services:
   api:
@@ -39,6 +43,13 @@ services:
       - "8501:8501"
     volumes:
       - ./models:/app/models:ro
-    depends_on:
-      - api
+    # The image's own HEALTHCHECK polls the API on port 8000, which nothing in
+    # this container listens on; without an override the UI was reported
+    # unhealthy forever. Streamlit exposes its own liveness endpoint.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
     restart: unless-stopped
