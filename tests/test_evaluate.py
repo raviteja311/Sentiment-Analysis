@@ -264,6 +264,26 @@ def test_include_base_scores_the_baseline_and_writes_its_record(monkeypatch, tmp
     assert record["metrics"]["test"]["accuracy"] == 0.5
 
 
+def test_a_record_scored_on_two_splits_remembers_both_sizes(monkeypatch, tmp_path):
+    from src.config import BASELINE_KEY
+
+    monkeypatch.setattr(evaluate, "METRICS_DIR", tmp_path)
+    monkeypatch.setattr(evaluate, "baseline_predictor", _StubBaseline)
+    monkeypatch.setattr(evaluate, "available_models", lambda: [])
+    dataset = {
+        "validation": {"text": ["a", "b"], "label": [2, 0]},
+        "test": {"text": ["a", "b", "c"], "label": [2, 0, 1]},
+    }
+    monkeypatch.setattr(evaluate, "load_raw_dataset", lambda: dataset)
+
+    evaluate.evaluate_models(None, split="validation", include_base=True)
+    evaluate.evaluate_models(None, split="test", include_base=True)
+
+    record = load_json(tmp_path / f"{BASELINE_KEY}.json")
+    assert evaluate.example_count(record, "validation") == 2
+    assert evaluate.example_count(record, "test") == 3
+
+
 def test_the_baseline_is_off_by_default(monkeypatch):
     monkeypatch.setattr(evaluate, "available_models", lambda: [])
     touched = []

@@ -9,7 +9,11 @@
   },
   "dataset": {
     "name": "cardiffnlp/tweet_eval",
-    "config": "sentiment"
+    "config": "sentiment",
+    "split_sizes": {
+      "validation": 2000,
+      "test": 12284
+    }
   },
   "metrics": {
     "test": {

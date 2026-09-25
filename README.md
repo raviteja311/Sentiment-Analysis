@@ -13,9 +13,9 @@ table by hand**, regenerate it.
 
 | Model | Split | Examples | Accuracy | Macro F1 | Macro recall | F1 negative | F1 neutral | F1 positive |
 |---|---|---|---|---|---|---|---|---|
-| Twitter-RoBERTa (base, not fine-tuned) | test | - | 0.7246 | 0.7240 | 0.7276 | 0.7447 | 0.7150 | 0.7125 |
+| Twitter-RoBERTa (base, not fine-tuned) | test | 12284 | 0.7246 | 0.7240 | 0.7276 | 0.7447 | 0.7150 | 0.7125 |
 | Twitter-RoBERTa (base, not fine-tuned) | validation | 2000 | 0.8055 | 0.7996 | 0.8080 | 0.7704 | 0.7864 | 0.8418 |
-| cardiffnlp/twitter-roberta-base-sentiment-latest (base, not fine-tuned) | validation | - | 0.7715 | 0.7610 | 0.7769 | 0.7116 | 0.7494 | 0.8220 |
+| cardiffnlp/twitter-roberta-base-sentiment-latest (base, not fine-tuned) | validation | 2000 | 0.7715 | 0.7610 | 0.7769 | 0.7116 | 0.7494 | 0.8220 |
 | cardiffnlp/twitter-roberta-base-sentiment-latest (base, not fine-tuned) | test | 12284 | 0.7234 | 0.7255 | 0.7363 | 0.7450 | 0.7054 | 0.7262 |
 | Twitter-RoBERTa | validation | 2000 | 0.7945 | 0.7864 | n/a | 0.7539 | 0.7637 | 0.8417 |
 | Twitter-RoBERTa | test | 12284 | 0.7109 | 0.7124 | n/a | 0.7328 | 0.6954 | 0.7091 |

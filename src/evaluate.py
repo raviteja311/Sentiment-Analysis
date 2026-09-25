@@ -215,6 +215,7 @@ def update_record(
         record = load_json(path)
         record.setdefault("metrics", {})[split] = metrics
         record["evaluation"] = evaluation
+        _remember_split_size(record, split, len(labels))
         return record
 
     # No training record: this model was trained elsewhere, or the reports
@@ -229,7 +230,19 @@ def update_record(
         display_name=baseline_display_name(base_model) if baseline else None,
     )
     record["evaluation"] = evaluation
+    _remember_split_size(record, split, len(labels))
     return record
+
+
+def _remember_split_size(record: dict, split: str, size: int) -> None:
+    """Keep the size of every split a record has been scored on.
+
+    Training records carry all split sizes already. A baseline record is
+    only ever written by evaluation, and ``evaluation`` remembers one split
+    at a time, so without this the table showed "-" for whichever split was
+    scored earlier.
+    """
+    record.setdefault("dataset", {}).setdefault("split_sizes", {})[split] = size
 
 
 def evaluate_models(
