@@ -235,7 +235,7 @@ def test_torch_threads_follow_the_environment(monkeypatch, value, calls):
 
 
 @requires_model("lstm")
-def test_the_direct_call_matches_model_predict(monkeypatch):
+def test_the_single_step_call_matches_model_predict(monkeypatch):
     pytest.importorskip("tensorflow")
     texts = ["what a great day", "this is awful", "the meeting is at noon", "!!!"]
     predictor = predictor_module.load_predictor("lstm")

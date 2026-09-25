@@ -56,8 +56,9 @@ LFS_POINTER_PREFIX = b"version https://git-lfs"
 LFS_HINT = "Run `git lfs install && git lfs pull` to download it"
 FETCH_HINT = "Run `make fetch-weights` to download it"
 
-# Up to this many texts the Keras models are called directly; above it they go
-# through model.predict, whose batching pays off. See SequencePredictor.
+# Up to this many texts the Keras models run one predict_on_batch step; above
+# it they go through model.predict, whose mini-batching pays off. See
+# SequencePredictor.
 FAST_PATH_MAX_TEXTS = 64
 
 
@@ -350,8 +351,12 @@ class SequencePredictor(Predictor):
         if len(padded) <= FAST_PATH_MAX_TEXTS:
             # model.predict builds a tf.data pipeline and an epoch loop on
             # every call, which for a handful of texts costs several times
-            # the forward pass itself. Calling the model directly skips that.
-            return np.asarray(self._model(padded, training=False))
+            # the forward pass itself. predict_on_batch runs the same compiled
+            # step function on the whole input at once, skipping that setup:
+            # measured at 9 ms against 80 ms for one text on CPU. Calling the
+            # model directly instead would be worse, not better - eager
+            # execution runs the recurrent layers op by op and took 600 ms.
+            return self._model.predict_on_batch(padded)
         return self._model.predict(padded, verbose=0)
 
 
