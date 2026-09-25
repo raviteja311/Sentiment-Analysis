@@ -230,6 +230,9 @@ def test_the_api_refuses_the_baseline(api_client):
 class _StubBaseline:
     key = "roberta_base"
 
+    def __init__(self, base_model=None):
+        self.base_model = base_model
+
     def predict_proba(self, texts):
         import numpy as np
 
@@ -270,7 +273,7 @@ def test_the_baseline_is_off_by_default(monkeypatch):
 
 
 def test_an_unreachable_hub_skips_the_baseline_rather_than_crashing(monkeypatch, caplog):
-    def offline():
+    def offline(base_model=None):
         raise OSError("no network")
 
     monkeypatch.setattr(evaluate, "baseline_predictor", offline)
@@ -285,7 +288,7 @@ def test_an_unreachable_hub_skips_the_baseline_rather_than_crashing(monkeypatch,
 def test_the_cli_exposes_include_base(monkeypatch):
     seen = {}
 
-    def fake(models, split, batch_size, include_base):
+    def fake(models, split, batch_size, include_base, base_model):
         seen["include_base"] = include_base
         return []
 
@@ -351,6 +354,120 @@ def test_the_baseline_predictor_loads_the_base_checkpoint_with_its_own_preproces
     assert predictor.preprocessing == "cardiff-v1"
     assert predictor.temperature == 1.0
     assert predictor.version == base
+
+
+# --- an alternative base checkpoint -------------------------------------------
+
+
+def test_the_configured_base_keeps_the_plain_key_and_others_get_a_suffix():
+    from src.config import ALTERNATIVE_ROBERTA_BASE, BASELINE_KEY, ROBERTA_CONFIG
+
+    assert evaluate.baseline_key() == BASELINE_KEY
+    assert evaluate.baseline_key(ROBERTA_CONFIG.base_model) == BASELINE_KEY
+    alternative = evaluate.baseline_key(ALTERNATIVE_ROBERTA_BASE)
+    assert alternative == f"{BASELINE_KEY}__twitter_roberta_base_sentiment_latest"
+    assert evaluate.is_baseline(alternative) and evaluate.is_baseline(BASELINE_KEY)
+    assert not evaluate.is_baseline("roberta")
+    assert ALTERNATIVE_ROBERTA_BASE in evaluate.baseline_display_name(
+        ALTERNATIVE_ROBERTA_BASE
+    )
+
+
+def test_an_alternative_base_is_scored_into_its_own_record(monkeypatch, tmp_path):
+    from src.config import ALTERNATIVE_ROBERTA_BASE, BASELINE_KEY
+
+    monkeypatch.setattr(evaluate, "METRICS_DIR", tmp_path)
+    monkeypatch.setattr(evaluate, "available_models", lambda: [])
+    monkeypatch.setattr(
+        evaluate,
+        "load_raw_dataset",
+        lambda: {"test": {"text": ["a", "b"], "label": [2, 0]}},
+    )
+    seen = []
+
+    def fake_baseline(base_model=None):
+        seen.append(base_model)
+        return _StubBaseline()
+
+    monkeypatch.setattr(evaluate, "baseline_predictor", fake_baseline)
+
+    reports = evaluate.evaluate_models(
+        None, include_base=True, base_model=ALTERNATIVE_ROBERTA_BASE
+    )
+
+    assert seen == [ALTERNATIVE_ROBERTA_BASE]
+    key = evaluate.baseline_key(ALTERNATIVE_ROBERTA_BASE)
+    assert [r["model"] for r in reports] == [key]
+    record = load_json(tmp_path / f"{key}.json")
+    assert record["hyperparameters"]["base_model"] == ALTERNATIVE_ROBERTA_BASE
+    assert record["hyperparameters"]["fine_tuned"] is False
+    assert ALTERNATIVE_ROBERTA_BASE in record["display_name"]
+    # The default base's record is untouched.
+    assert not (tmp_path / f"{BASELINE_KEY}.json").exists()
+
+
+def test_the_table_picks_up_every_baseline_record(monkeypatch, tmp_path):
+    from src.config import ALTERNATIVE_ROBERTA_BASE, BASELINE_KEY
+
+    monkeypatch.setattr(evaluate, "METRICS_DIR", tmp_path)
+    for key, base in (
+        (BASELINE_KEY, None),
+        (evaluate.baseline_key(ALTERNATIVE_ROBERTA_BASE), ALTERNATIVE_ROBERTA_BASE),
+    ):
+        record = build_report(
+            model=key,
+            hyperparameters=evaluate.baseline_hyperparameters(base),
+            dataset={},
+            metrics={"validation": compute_metrics([0, 1, 2], [0, 1, 2])},
+            display_name=evaluate.baseline_display_name(base),
+        )
+        save_json(record, tmp_path / f"{key}.json")
+
+    reports = evaluate.load_reports()
+    assert len(reports) == 2
+    assert ALTERNATIVE_ROBERTA_BASE in evaluate.markdown_table(reports)
+
+
+def test_the_cli_passes_the_base_model_through(monkeypatch):
+    from src.config import ALTERNATIVE_ROBERTA_BASE
+
+    seen = {}
+
+    def fake(models, split, batch_size, include_base, base_model):
+        seen.update(include_base=include_base, base_model=base_model)
+        return []
+
+    monkeypatch.setattr(evaluate, "evaluate_models", fake)
+    evaluate.main(["--include-base", "--base-model", ALTERNATIVE_ROBERTA_BASE])
+    assert seen == {"include_base": True, "base_model": ALTERNATIVE_ROBERTA_BASE}
+
+
+def test_the_baseline_predictor_loads_the_checkpoint_it_is_given(monkeypatch):
+    transformers = pytest.importorskip("transformers")
+    from src.config import ALTERNATIVE_ROBERTA_BASE
+
+    calls = []
+
+    class Fake:
+        @classmethod
+        def from_pretrained(cls, name, **kwargs):
+            calls.append(name)
+            return cls()
+
+        def to(self, device):
+            return self
+
+        def eval(self):
+            return self
+
+    monkeypatch.setattr(transformers, "AutoTokenizer", Fake)
+    monkeypatch.setattr(transformers, "AutoModelForSequenceClassification", Fake)
+
+    predictor = evaluate.BaselinePredictor(ALTERNATIVE_ROBERTA_BASE, device="cpu")
+    assert calls == [ALTERNATIVE_ROBERTA_BASE] * 2
+    assert predictor.key == evaluate.baseline_key(ALTERNATIVE_ROBERTA_BASE)
+    assert predictor.version == ALTERNATIVE_ROBERTA_BASE
+    assert predictor.preprocessing == "cardiff-v1"
 
 
 # --- scoring a real artifact ----------------------------------------------

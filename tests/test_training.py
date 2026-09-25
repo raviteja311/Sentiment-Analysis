@@ -1,5 +1,7 @@
 """Training-time behaviour that does not require running a training job."""
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -258,6 +260,59 @@ def test_every_model_has_a_training_spec_the_code_knows():
 
     assert set(TRAIN_PREPROCESSING) == set(MODEL_KEYS)
     assert set(TRAIN_PREPROCESSING.values()) <= set(SPECS)
+
+
+# --- training the transformer from another base -------------------------------------
+
+
+def test_a_roberta_variant_writes_everything_under_its_own_directory(tmp_path):
+    pytest.importorskip("transformers")
+    from src.config import METRICS_DIR, ROBERTA_DIR
+    from src.training.train_roberta import output_paths
+
+    served = output_paths(None)
+    assert served["model"] == ROBERTA_DIR
+    assert served["report"] == METRICS_DIR / "roberta.json"
+    assert served["history"] == METRICS_DIR / "roberta_training_history.json"
+
+    scratch = output_paths(tmp_path / "variant")
+    for path in scratch.values():
+        assert (tmp_path / "variant") in path.parents or path == tmp_path / "variant"
+    assert scratch["report"].name == "metrics.json"
+
+
+def test_the_roberta_cli_takes_a_base_model_and_an_out_dir(tmp_path):
+    pytest.importorskip("transformers")
+    from src.config import ALTERNATIVE_ROBERTA_BASE, ROBERTA_CONFIG
+    from src.training.train_roberta import parse_args
+
+    default = parse_args([])
+    assert default.base_model == ROBERTA_CONFIG.base_model
+    assert default.out_dir is None
+
+    variant = parse_args(
+        ["--base-model", ALTERNATIVE_ROBERTA_BASE, "--out-dir", str(tmp_path / "v")]
+    )
+    assert variant.base_model == ALTERNATIVE_ROBERTA_BASE
+    assert variant.out_dir == tmp_path / "v"
+
+
+def test_the_roberta_cli_builds_the_config_it_trains_with(monkeypatch, tmp_path):
+    pytest.importorskip("transformers")
+    from src.config import ALTERNATIVE_ROBERTA_BASE
+    from src.training import train_roberta
+
+    seen = {}
+
+    def fake_main(config, out_dir=None):
+        seen.update(base_model=config.base_model, out_dir=out_dir)
+
+    monkeypatch.setattr(train_roberta, "main", fake_main)
+    assert (
+        train_roberta.run(["--base-model", ALTERNATIVE_ROBERTA_BASE, "--out-dir", "x"])
+        == 0
+    )
+    assert seen == {"base_model": ALTERNATIVE_ROBERTA_BASE, "out_dir": Path("x")}
 
 
 # --- the transformer's training history -------------------------------------------

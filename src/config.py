@@ -260,6 +260,14 @@ class SequenceConfig:
     pretrained_embeddings: str | None = "glove-twitter-100"
 
 
+# A candidate replacement for RobertaConfig.base_model: the same architecture
+# and vocabulary, trained by the same group on a larger and more recent tweet
+# corpus. It is not the default; a variant is trained from it with
+# `python -m src.training.train_roberta --base-model ... --out-dir ...` and
+# the two are compared on validation before anything is switched.
+ALTERNATIVE_ROBERTA_BASE = "cardiffnlp/twitter-roberta-base-sentiment-latest"
+
+
 @dataclass(frozen=True)
 class RobertaConfig:
     """Fine-tuning settings for the Twitter-RoBERTa checkpoint."""

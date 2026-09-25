@@ -304,6 +304,23 @@ Training writes both the artifact and a metrics record to `reports/metrics/`.
 them, so the training provenance survives. Publish retrained weights with
 `make publish-weights` (needs `huggingface-cli login`).
 
+The transformer can be fine-tuned from another checkpoint without replacing
+the served one. `cardiffnlp/twitter-roberta-base-sentiment-latest` is the same
+architecture trained by the same group on a larger, more recent tweet corpus:
+
+```bash
+python -m src.evaluate --include-base \
+    --base-model cardiffnlp/twitter-roberta-base-sentiment-latest   # zero-shot, no GPU needed
+python -m src.training.train_roberta \
+    --base-model cardiffnlp/twitter-roberta-base-sentiment-latest \
+    --out-dir reports/experiments/scratch/roberta_latest             # the fine-tuning run
+```
+
+The variant's weights, record and history land under `--out-dir`; compare its
+validation scores in `metrics.json` with `reports/metrics/roberta.json`, and
+only if it wins change `RobertaConfig.base_model` and retrain into the served
+location. Test is consulted for the final table, not for the choice.
+
 Preprocessing is versioned. Each model trains with the spec named for it in
 `TRAIN_PREPROCESSING` (`src/config.py`) and records it in
 `models/<key>/preprocessing.json`; serving reads that file, so a change to the

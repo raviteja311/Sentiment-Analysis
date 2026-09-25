@@ -13,10 +13,25 @@ Two things changed after the first training run:
   trainer_state.json shows epoch 1 was the best (macro F1 0.7806) while
   validation loss climbed from 0.5146 to 0.9767 by epoch 3 - the extra epochs
   bought overfitting and a gigabyte of duplicated weights.
+
+Run it as a module. Without arguments it trains the configured base into
+models/roberta/ and writes the served record::
+
+    python -m src.training.train_roberta
+
+To try another base checkpoint without touching the served artifact, train a
+variant into a scratch directory and compare its validation scores with the
+served record's; test is consulted only for the final table::
+
+    python -m src.training.train_roberta \\
+        --base-model cardiffnlp/twitter-roberta-base-sentiment-latest \\
+        --out-dir reports/experiments/scratch/roberta_latest
 """
 
+import argparse
 import logging
-from dataclasses import asdict
+import sys
+from dataclasses import asdict, replace
 from pathlib import Path
 
 import numpy as np
@@ -92,6 +107,29 @@ def training_history(state) -> dict:
     }
 
 
+def output_paths(out_dir: Path | None) -> dict[str, Path]:
+    """Where a run writes: the served locations, or all under ``out_dir``.
+
+    A variant run must not overwrite the served weights, their metrics
+    record or the training history, so everything it writes goes under one
+    scratch directory.
+    """
+    if out_dir is None:
+        return {
+            "model": ROBERTA_DIR,
+            "report": METRICS_DIR / "roberta.json",
+            "history": METRICS_DIR / "roberta_training_history.json",
+            "logs": REPORTS_DIR / "tb_logs" / "roberta",
+        }
+    out_dir = Path(out_dir)
+    return {
+        "model": out_dir,
+        "report": out_dir / "metrics.json",
+        "history": out_dir / "training_history.json",
+        "logs": out_dir / "tb_logs",
+    }
+
+
 def trainer_metrics(eval_pred):
     """Scalar metrics for Trainer's own logging and checkpoint selection."""
     logits, labels = eval_pred
@@ -102,9 +140,11 @@ def trainer_metrics(eval_pred):
     }
 
 
-def main(config=ROBERTA_CONFIG):
+def main(config=ROBERTA_CONFIG, out_dir: Path | None = None):
     logging.basicConfig(level=logging.INFO, format="%(message)s")
-    ROBERTA_DIR.mkdir(parents=True, exist_ok=True)
+    paths = output_paths(out_dir)
+    model_dir = paths["model"]
+    model_dir.mkdir(parents=True, exist_ok=True)
 
     spec = TRAIN_PREPROCESSING["roberta"]
     dataset = load_raw_dataset()
@@ -136,7 +176,7 @@ def main(config=ROBERTA_CONFIG):
     tokenized.set_format(type="torch")
 
     training_args = TrainingArguments(
-        output_dir=str(ROBERTA_DIR),
+        output_dir=str(model_dir),
         eval_strategy="epoch",
         save_strategy="epoch",
         per_device_train_batch_size=config.batch_size,
@@ -153,7 +193,7 @@ def main(config=ROBERTA_CONFIG):
         greater_is_better=True,
         # Keep TensorBoard event files out of models/, where they were being
         # committed alongside the weights.
-        logging_dir=str(REPORTS_DIR / "tb_logs" / "roberta"),
+        logging_dir=str(paths["logs"]),
         seed=SEED,
         push_to_hub=False,
         # Mixed precision roughly halves activation memory. On a 4 GB card that
@@ -179,9 +219,8 @@ def main(config=ROBERTA_CONFIG):
 
     # The per-epoch validation curve is what justifies the epoch count in
     # config; kept next to the metrics so it survives deleting the checkpoint.
-    history_path = METRICS_DIR / "roberta_training_history.json"
-    save_json(training_history(trainer.state), history_path)
-    LOGGER.info("Wrote training history: %s", history_path)
+    save_json(training_history(trainer.state), paths["history"])
+    LOGGER.info("Wrote training history: %s", paths["history"])
 
     metrics = {}
     for split in ("validation", "test"):
@@ -195,10 +234,10 @@ def main(config=ROBERTA_CONFIG):
             metrics[split]["f1_macro"],
         )
 
-    LOGGER.info("Saving model and tokenizer to %s", ROBERTA_DIR)
-    trainer.save_model(str(ROBERTA_DIR))
-    tokenizer.save_pretrained(str(ROBERTA_DIR))
-    write_artifact_spec("roberta", spec)
+    LOGGER.info("Saving model and tokenizer to %s", model_dir)
+    trainer.save_model(str(model_dir))
+    tokenizer.save_pretrained(str(model_dir))
+    write_artifact_spec("roberta", spec, directory=model_dir)
 
     report = build_report(
         model="roberta",
@@ -206,12 +245,44 @@ def main(config=ROBERTA_CONFIG):
         dataset=describe(dataset),
         metrics=metrics,
     )
-    report_path = METRICS_DIR / "roberta.json"
-    save_json(report, report_path)
-    LOGGER.info("Wrote metrics: %s", report_path)
+    save_json(report, paths["report"])
+    LOGGER.info("Wrote metrics: %s", paths["report"])
 
     return report
 
 
+def parse_args(argv=None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "--base-model",
+        default=ROBERTA_CONFIG.base_model,
+        help="checkpoint to fine-tune from (default: the configured base)",
+    )
+    parser.add_argument(
+        "--out-dir",
+        type=Path,
+        default=None,
+        help=(
+            "write the weights, record and history here instead of the served "
+            "locations; use for a variant that must not replace models/roberta"
+        ),
+    )
+    return parser.parse_args(argv)
+
+
+def run(argv=None) -> int:
+    args = parse_args(argv)
+    config = replace(ROBERTA_CONFIG, base_model=args.base_model)
+    if args.out_dir is None and config.base_model != ROBERTA_CONFIG.base_model:
+        LOGGER.warning(
+            "Training %s into the served location. Prefer --out-dir for a variant, "
+            "so the served artifact and its record are not replaced before the "
+            "comparison on validation.",
+            config.base_model,
+        )
+    main(config, out_dir=args.out_dir)
+    return 0
+
+
 if __name__ == "__main__":
-    main()
+    sys.exit(run())
