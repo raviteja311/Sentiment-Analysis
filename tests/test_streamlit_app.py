@@ -58,4 +58,39 @@ def test_probability_table_is_rendered():
     app = run_app()
     app.text_area[0].set_value("this is awful").run()
     app.button[0].click().run()
-    assert app.dataframe
+    tables = [frame.value for frame in app.dataframe]
+    assert any("Probability" in frame.columns for frame in tables)
+
+
+# --- the confusion matrix ---------------------------------------------------
+
+
+@pytest.mark.skipif("lr" not in available_models(), reason="LR artifact unavailable")
+def test_the_confusion_matrix_is_shown_before_any_prediction():
+    from src.config import LABELS
+
+    app = run_app()
+    assert not app.exception
+    assert app.expander
+    assert "test split" in app.expander[0].label
+    frame = app.dataframe[0].value
+    assert list(frame.columns)[1:] == list(LABELS)
+    assert len(frame) == len(LABELS)
+    # Counts, and there are 12,284 test tweets.
+    assert int(frame[list(LABELS)].to_numpy().sum()) == 12284
+
+
+# --- explaining the linear prediction ---------------------------------------
+
+
+@pytest.mark.skipif("lr" not in available_models(), reason="LR artifact unavailable")
+def test_the_linear_model_shows_the_terms_behind_its_label():
+    app = run_app()
+    app.text_area[0].set_value("this is absolutely awful").run()
+    app.button[0].click().run()
+
+    assert not app.exception
+    assert any(sub.value.startswith("Why ") for sub in app.subheader)
+    term_tables = [f.value for f in app.dataframe if "contribution" in f.value.columns]
+    assert len(term_tables) == 1
+    assert "awful" in list(term_tables[0]["term"])

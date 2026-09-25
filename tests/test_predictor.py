@@ -343,6 +343,21 @@ def test_predictors_are_cached():
     assert load_predictor("lr") is load_predictor("lr")
 
 
+# --- explaining the linear model --------------------------------------------
+
+
+@requires_model("lr")
+def test_the_lr_predictor_explains_its_label_with_its_own_preprocessing():
+    predictor = load_predictor("lr")
+    prediction = predictor.predict("this is absolutely awful")
+    terms = predictor.top_terms("this is absolutely awful", prediction.label)
+    assert terms
+    assert any(t.term == "awful" for t in terms)
+    # Preprocessing was applied: the raw text is upper-cased here, and the
+    # model's vocabulary is lowercase.
+    assert predictor.top_terms("THIS IS AWFUL", prediction.label)
+
+
 # --- the preprocessing spec ------------------------------------------------
 
 

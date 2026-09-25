@@ -344,6 +344,17 @@ class LRPredictor(Predictor):
         # Today those coincide; relying on that was an unchecked assumption.
         return _order_by_label_index(probs, self._pipeline.classes_)
 
+    def top_terms(self, text: str, label: str, k: int = 10):
+        """The terms that moved this text's score for ``label`` most.
+
+        Preprocessed with the artifact's own spec first, so the terms shown
+        are the ones the model actually saw.
+        """
+        from src.inference.explain import top_weighted_terms
+
+        cleaned = preprocess_tweet(text, self.preprocessing)
+        return top_weighted_terms(self._pipeline, cleaned, LABELS.index(label), k=k)
+
 
 class SequencePredictor(Predictor):
     """Keras Bi-LSTM / Bi-GRU with its fitted tokenizer."""

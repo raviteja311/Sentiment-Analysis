@@ -25,18 +25,94 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import streamlit as st
 
-from src.config import LABELS
+from src.config import LABELS, METRICS_DIR
 from src.inference.predictor import (
+    LRPredictor,
     ModelUnavailableError,
     load_predictor,
     model_status,
 )
+from src.utils.io import load_json
+
+TOP_TERMS = 10
 
 
 @st.cache_resource(show_spinner="Loading model...")
 def get_predictor(model_key: str):
     """Load a predictor once per session."""
     return load_predictor(model_key)
+
+
+@st.cache_data(ttl=600)
+def load_record(model_key: str) -> dict | None:
+    """The model's metrics record, or None if it has none.
+
+    Cached with a short ttl rather than forever: `make evaluate` rewrites the
+    file, and a running UI should pick that up without a restart.
+    """
+    path = METRICS_DIR / f"{model_key}.json"
+    if not path.exists():
+        return None
+    return load_json(path)
+
+
+def render_confusion_matrix(model_key: str) -> None:
+    """The model's test-split confusion matrix, from its metrics record."""
+    record = load_record(model_key)
+    metrics = (record or {}).get("metrics", {}).get("test")
+    if not metrics or "confusion_matrix" not in metrics:
+        st.info("No test-split metrics recorded for this model. Run `make evaluate`.")
+        return
+
+    matrix = metrics["confusion_matrix"]
+    st.caption(
+        f"Test split: accuracy {metrics['accuracy']:.4f}, macro F1 "
+        f"{metrics['f1_macro']:.4f}. Rows are the true label, columns the "
+        "predicted one."
+    )
+    st.dataframe(
+        {
+            "true \\ predicted": list(LABELS),
+            **{label: [row[i] for row in matrix] for i, label in enumerate(LABELS)},
+        },
+        width="stretch",
+        hide_index=True,
+    )
+
+
+def render_top_terms(predictor: LRPredictor, text: str, label: str) -> None:
+    """The terms that pushed the linear model towards or away from its label."""
+    terms = predictor.top_terms(text, label, k=TOP_TERMS)
+    if not terms:
+        st.info("None of the words in this text are in the model's vocabulary.")
+        return
+
+    st.subheader(f"Why {label}")
+    st.caption(
+        "Each bar is a term's tf-idf value times its coefficient for the "
+        "predicted class: what it added to the score. Positive bars pushed "
+        "towards the label, negative bars away from it."
+    )
+    chart = {
+        "term": [t.term for t in terms],
+        "contribution": [t.contribution for t in terms],
+    }
+    st.bar_chart(chart, x="term", y="contribution", horizontal=True, sort=False)
+    st.dataframe(
+        {
+            "term": [t.term for t in terms],
+            "weight": [t.weight for t in terms],
+            "tf-idf": [t.tfidf for t in terms],
+            "contribution": [t.contribution for t in terms],
+        },
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "weight": st.column_config.NumberColumn(format="%.3f"),
+            "tf-idf": st.column_config.NumberColumn(format="%.3f"),
+            "contribution": st.column_config.NumberColumn(format="%.3f"),
+        },
+    )
 
 
 def render_sidebar(status: dict) -> str | None:
@@ -78,7 +154,14 @@ def main() -> None:
 
     text = st.text_area("Enter text to analyze:", height=140)
 
-    if not st.button("Predict", type="primary"):
+    predict = st.button("Predict", type="primary")
+
+    # Rendered before the prediction, so it is there whether or not the user
+    # has clicked yet; the record is a cached JSON read, not a model load.
+    with st.expander("How this model does on the test split"):
+        render_confusion_matrix(choice)
+
+    if not predict:
         return
 
     if not text.strip():
@@ -107,6 +190,12 @@ def main() -> None:
         width="stretch",
         hide_index=True,
     )
+
+    # Only the linear model's decision is a sum of per-term weights that can
+    # be shown exactly; the neural models get no explanation rather than a
+    # misleading one.
+    if isinstance(predictor, LRPredictor):
+        render_top_terms(predictor, text, prediction.label)
 
 
 main()

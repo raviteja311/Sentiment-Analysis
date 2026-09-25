@@ -222,6 +222,14 @@ application process.
 make ui           # or: streamlit run app/streamlit_app.py
 ```
 
+Besides the prediction and its probabilities, the app shows the selected
+model's test-split confusion matrix, read from its record in
+`reports/metrics/`, and for the Logistic Regression model the terms that
+pushed the text towards or away from its label: each term's tf-idf value
+times its coefficient for the predicted class. The neural models get no such
+explanation, because their decisions are not sums of per-term weights and a
+made-up one would be worse than none.
+
 ### Docker
 
 ```bash
