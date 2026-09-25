@@ -17,6 +17,7 @@ Two things changed after the first training run:
 
 import logging
 from dataclasses import asdict
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -35,6 +36,7 @@ from src.config import (
     LABEL2ID,
     METRICS_DIR,
     NUM_LABELS,
+    PROJECT_ROOT,
     REPORTS_DIR,
     ROBERTA_CONFIG,
     ROBERTA_DIR,
@@ -52,6 +54,40 @@ def preprocess_examples(examples):
     return {
         "text": [preprocess_tweet(text) for text in examples["text"]],
         "label": examples["label"],
+    }
+
+
+def relative_to_project(path: str | None) -> str | None:
+    """A path as recorded in a metrics file: relative to the project root.
+
+    The Trainer records the checkpoint it kept as an absolute path, which
+    once put a Windows user directory into a committed report. A report is
+    read on other machines, so it names files the way the repository does.
+    """
+    if path is None:
+        return None
+    resolved = Path(path).resolve()
+    try:
+        return resolved.relative_to(PROJECT_ROOT).as_posix()
+    except ValueError:
+        return resolved.as_posix()
+
+
+def training_history(state) -> dict:
+    """Per-epoch validation scores from a Trainer's state, for the report.
+
+    ``state`` is ``trainer.state``: its ``log_history`` mixes training-loss
+    lines with evaluation lines, and only the latter are kept. The result is
+    the shape of reports/metrics/roberta_training_history.json.
+    """
+    evaluations = [entry for entry in state.log_history if "eval_loss" in entry]
+    return {
+        "model": "roberta",
+        "best_metric": state.best_metric,
+        "best_model_checkpoint": relative_to_project(state.best_model_checkpoint),
+        "epoch": state.epoch,
+        "global_step": state.global_step,
+        "evaluations": evaluations,
     }
 
 
@@ -138,6 +174,12 @@ def main(config=ROBERTA_CONFIG):
 
     LOGGER.info("Training...")
     trainer.train()
+
+    # The per-epoch validation curve is what justifies the epoch count in
+    # config; kept next to the metrics so it survives deleting the checkpoint.
+    history_path = METRICS_DIR / "roberta_training_history.json"
+    save_json(training_history(trainer.state), history_path)
+    LOGGER.info("Wrote training history: %s", history_path)
 
     metrics = {}
     for split in ("validation", "test"):

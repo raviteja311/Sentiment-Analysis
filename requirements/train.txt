@@ -1,7 +1,9 @@
 # Training stack: everything needed for inference, plus the dataset pipeline.
 #
-# Dropped from the previous version of this file: evaluate, tqdm and pyyaml.
-# None of them were imported anywhere in the project.
+# Dropped from earlier versions of this file: evaluate, tqdm and pyyaml, which
+# nothing imported, and pandas, whose only use was a DataFrame detour in
+# train_lr.py that the shared split preparation replaced. `datasets` still
+# installs pandas as its own dependency; it is just no longer ours.
 
 -r inference-cpu.txt
 
@@ -9,5 +11,3 @@ datasets==4.4.1
 
 # transformers.Trainer requires accelerate when training on torch.
 accelerate==1.11.0
-
-pandas==2.3.3

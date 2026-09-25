@@ -13,14 +13,12 @@ from dataclasses import asdict
 import joblib
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
 
 from src.config import LR_CONFIG, LR_DIR, METRICS_DIR, SEED
-from src.data import describe, load_raw_dataset
+from src.data import describe, load_raw_dataset, prepare_split
 from src.utils.io import save_json
 from src.utils.metrics import build_report, compute_metrics
-from src.utils.preprocessing import preprocess_tweet
 
 OUT_DIR = LR_DIR
 
@@ -68,41 +66,29 @@ def build_pipeline(config=LR_CONFIG) -> Pipeline:
     )
 
 
-def ds_to_df(ds, split):
-    import pandas as pd
-
-    texts = [preprocess_tweet(t) for t in ds[split]["text"]]
-    labels = ds[split]["label"]
-    return pd.DataFrame({"text": texts, "label": labels})
-
-
 def main():
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    # The shared loader, so the dataset name comes from config and the split
-    # sizes are logged like every other training run's.
+    # The shared loader and split preparation, so the dataset name comes from
+    # config, the split sizes are logged like every other training run's, and
+    # the text is preprocessed exactly as the other models see it.
     ds = load_raw_dataset()
-    train_df = ds_to_df(ds, "train")
-    val_df = ds_to_df(ds, "validation")
-    test_df = ds_to_df(ds, "test")
+    train_texts, train_labels = prepare_split(ds, "train")
+    val_texts, val_labels = prepare_split(ds, "validation")
+    test_texts, test_labels = prepare_split(ds, "test")
 
-    pipe = build_pipeline()
-
-    params = {"tfidf__max_features": [LR_CONFIG.max_features], "clf__C": [LR_CONFIG.C]}
-
-    print("Starting GridSearchCV (this may take a while)...")
-    # n_jobs here is GridSearchCV's, which is still supported; it is
-    # LogisticRegression's own n_jobs that scikit-learn deprecated.
-    gs = GridSearchCV(pipe, params, cv=3, scoring="f1_macro", n_jobs=-1, verbose=1)
-    gs.fit(train_df["text"], train_df["label"])
-
-    best = gs.best_estimator_
-    print("Best params:", gs.best_params_)
+    # Fitted directly. This used to go through GridSearchCV over a grid with
+    # exactly one point, which fitted the same pipeline three times for cross-
+    # validation and a fourth time on the full split - tripling the run for a
+    # search that could only ever return the configured values.
+    print("Fitting the TF-IDF + LogisticRegression pipeline...")
+    best = build_pipeline()
+    best.fit(train_texts, train_labels)
 
     metrics = {
-        "validation": compute_metrics(val_df["label"], best.predict(val_df["text"])),
-        "test": compute_metrics(test_df["label"], best.predict(test_df["text"])),
+        "validation": compute_metrics(val_labels, best.predict(val_texts)),
+        "test": compute_metrics(test_labels, best.predict(test_texts)),
     }
     for split, scores in metrics.items():
         print(

@@ -65,6 +65,117 @@ def test_committed_lr_pipeline_was_trained_with_the_configured_token_pattern():
     assert "<user>" in tfidf.vocabulary_
 
 
+# --- the LR training run --------------------------------------------------------
+
+
+class _FakeSplit(dict):
+    """Just enough of a datasets split: column access and a length."""
+
+    def __len__(self):
+        return len(self["text"])
+
+
+def _fake_dataset():
+    phrases = {
+        0: "awful terrible bad hate worst",
+        1: "meeting today schedule update note",
+        2: "great love wonderful best happy",
+    }
+    texts, labels = [], []
+    for label, phrase in phrases.items():
+        for i in range(8):
+            texts.append(f"{phrase} {i}")
+            labels.append(label)
+    split = _FakeSplit(text=texts, label=labels)
+    return {"train": split, "validation": split, "test": split}
+
+
+def test_lr_training_fits_the_pipeline_once_and_writes_the_record(monkeypatch, tmp_path):
+    from src.training import train_lr
+
+    monkeypatch.setattr(train_lr, "load_raw_dataset", _fake_dataset)
+    monkeypatch.setattr(train_lr, "OUT_DIR", tmp_path / "lr")
+    monkeypatch.setattr(train_lr, "METRICS_DIR", tmp_path / "metrics")
+
+    fits = []
+    original_fit = train_lr.Pipeline.fit
+
+    def counting_fit(self, *args, **kwargs):
+        fits.append(self)
+        return original_fit(self, *args, **kwargs)
+
+    monkeypatch.setattr(train_lr.Pipeline, "fit", counting_fit)
+
+    report = train_lr.main()
+
+    # One fit on the training split. The former GridSearchCV over a single
+    # point fitted three cross-validation folds plus the final refit.
+    assert len(fits) == 1
+    assert (tmp_path / "lr" / "pipeline.joblib").is_file()
+    assert (tmp_path / "metrics" / "lr.json").is_file()
+    assert report["metrics"]["validation"]["accuracy"] == 1.0
+
+
+def test_lr_training_prepares_splits_the_shared_way(monkeypatch, tmp_path):
+    # Every other training script goes through src.data.prepare_split, so the
+    # text reaches the vectorizer preprocessed exactly as the other models see
+    # it. A local DataFrame detour used to bypass that.
+    from src.training import train_lr
+
+    seen = []
+    original = train_lr.prepare_split
+
+    def recording(dataset, split):
+        seen.append(split)
+        return original(dataset, split)
+
+    monkeypatch.setattr(train_lr, "prepare_split", recording)
+    monkeypatch.setattr(train_lr, "load_raw_dataset", _fake_dataset)
+    monkeypatch.setattr(train_lr, "OUT_DIR", tmp_path / "lr")
+    monkeypatch.setattr(train_lr, "METRICS_DIR", tmp_path / "metrics")
+
+    train_lr.main()
+    assert seen == ["train", "validation", "test"]
+
+
+# --- the transformer's training history -------------------------------------------
+
+
+def test_training_history_records_the_checkpoint_relative_to_the_project():
+    pytest.importorskip("transformers")
+    from src.config import PROJECT_ROOT
+    from src.training.train_roberta import training_history
+
+    class State:
+        best_metric = 0.78
+        best_model_checkpoint = str(PROJECT_ROOT / "models" / "roberta" / "checkpoint-7")
+        epoch = 2.0
+        global_step = 14
+        log_history = [
+            {"loss": 0.9, "step": 7},
+            {"eval_loss": 0.5, "eval_f1_macro": 0.77, "epoch": 1.0, "step": 7},
+            {"eval_loss": 0.6, "eval_f1_macro": 0.78, "epoch": 2.0, "step": 14},
+        ]
+
+    history = training_history(State())
+    assert history["best_model_checkpoint"] == "models/roberta/checkpoint-7"
+    assert [e["step"] for e in history["evaluations"]] == [7, 14]
+    assert history["best_metric"] == 0.78
+
+
+def test_the_committed_training_history_has_no_absolute_path():
+    import json
+
+    from src.config import METRICS_DIR
+
+    history = json.loads(
+        (METRICS_DIR / "roberta_training_history.json").read_text(encoding="utf-8")
+    )
+    checkpoint = history["best_model_checkpoint"]
+    assert not checkpoint.startswith(("C:", "/")), checkpoint
+    assert "\\" not in checkpoint
+
+
 def test_balanced_weights_favour_the_rare_class():
     # 80% neutral, 10% each negative and positive.
     labels = np.array([1] * 80 + [0] * 10 + [2] * 10)

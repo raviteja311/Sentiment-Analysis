@@ -35,8 +35,10 @@ aggregate-level analysis where individual errors wash out.
   recurrent models truncate at 80 tokens, the transformer at 128.
 - **Domains far from Twitter** - reviews, clinical notes, legal text. TweetEval
   is drawn from Twitter and carries its vocabulary and conventions.
-- **Anything treating the confidence score as a calibrated probability.** See
-  Limitations.
+- **Anything that needs the confidence score to be an exact probability.**
+  Scores are temperature-scaled, so they are calibrated only approximately: the
+  transformer still has a residual expected calibration error near 0.09 (see
+  Limitations). Read a 0.95 as "usually right", not as 95 correct calls in 100.
 
 ## Training data
 
