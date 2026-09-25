@@ -282,6 +282,7 @@ make evaluate        # scores every available model, regenerates the table above
 python -m src.evaluate --include-base   # also the base checkpoint, not fine-tuned
 make calibrate       # refits temperature scaling after retraining
 make behaviour       # CheckList-style probes: negation, entities, emoji, invariances
+make experiments     # class-weight, decision-bias and label-shift comparisons, validation only
 ```
 
 `make behaviour` asks targeted questions the aggregate metrics cannot: does

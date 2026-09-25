@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import asdict
+from pathlib import Path
 
 import numpy as np
 
@@ -99,10 +100,16 @@ def train_sequence_model(
     key: str,
     build_fn: Callable,
     config: SequenceConfig = SEQUENCE_CONFIG,
+    out_dir: Path | None = None,
 ) -> dict:
     """Train one sequence model end to end and write its metrics record.
 
     Returns the record that was saved to ``reports/metrics/<key>.json``.
+
+    ``out_dir`` redirects everything the run writes - tokenizer, weights,
+    preprocessing spec and the metrics record, as ``metrics.json`` - into one
+    directory, so an experiment (src/experiments.py) can train a variant
+    without overwriting the served artifact or its provenance.
     """
     import joblib
     import keras
@@ -111,7 +118,8 @@ def train_sequence_model(
 
     keras.utils.set_random_seed(SEED)
 
-    out_dir = MODEL_DIRS[key]
+    scratch = out_dir is not None
+    out_dir = MODEL_DIRS[key] if out_dir is None else Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     spec = TRAIN_PREPROCESSING[key]
@@ -129,7 +137,7 @@ def train_sequence_model(
     joblib.dump(_portable(tokenizer), out_dir / "tokenizer.joblib")
     # Recorded beside the tokenizer, because the tokenizer only fits text
     # normalised this way; inference reads it back.
-    write_artifact_spec(key, spec)
+    write_artifact_spec(key, spec, directory=out_dir)
 
     features = {
         name: texts_to_padded(tokenizer, texts, config.max_len)
@@ -226,7 +234,7 @@ def train_sequence_model(
         dataset=describe(dataset),
         metrics=metrics,
     )
-    report_path = METRICS_DIR / f"{key}.json"
+    report_path = out_dir / "metrics.json" if scratch else METRICS_DIR / f"{key}.json"
     save_json(report, report_path)
     LOGGER.info("Wrote metrics: %s", report_path)
 

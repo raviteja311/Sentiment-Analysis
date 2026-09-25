@@ -206,10 +206,14 @@ def artifact_spec(model: str) -> str:
     return spec
 
 
-def write_artifact_spec(model: str, spec: str) -> Path:
-    """Record the spec beside the weights. Training calls this."""
+def write_artifact_spec(model: str, spec: str, directory: Path | None = None) -> Path:
+    """Record the spec beside the weights. Training calls this.
+
+    ``directory`` overrides the model's directory, for training runs that
+    must not touch the served artifacts (see src/experiments.py).
+    """
     resolve_spec(spec)
-    path = spec_path(model)
+    path = spec_path(model) if directory is None else Path(directory) / PREPROCESSING_FILE
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8", newline="\n") as handle:
         json.dump({"spec": spec}, handle, indent=2)

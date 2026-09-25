@@ -194,6 +194,45 @@ def test_lr_training_records_its_preprocessing_spec(monkeypatch, tmp_path):
     assert report["hyperparameters"]["preprocessing"] == TRAIN_PREPROCESSING["lr"]
 
 
+def test_a_scratch_training_run_leaves_the_served_artifacts_alone(monkeypatch, tmp_path):
+    """train_sequence_model(out_dir=...) is what the experiments rely on."""
+    pytest.importorskip("keras", reason="Keras (with a backend) is not installed")
+    from dataclasses import replace
+
+    from src.config import MODEL_DIRS, SEQUENCE_CONFIG
+    from src.models.lstm_model import build_lstm
+    from src.training import train_sequence
+
+    tiny = replace(
+        SEQUENCE_CONFIG,
+        max_vocab=60,
+        max_len=6,
+        embed_dim=4,
+        batch_size=8,
+        epochs=1,
+        pretrained_embeddings=None,
+    )
+    monkeypatch.setattr(train_sequence, "load_raw_dataset", _fake_dataset)
+    before = sorted(p.name for p in MODEL_DIRS["lstm"].iterdir())
+    metrics_before = sorted(p.name for p in (train_sequence.METRICS_DIR).iterdir())
+
+    scratch = tmp_path / "variant"
+    report = train_sequence.train_sequence_model(
+        "lstm", build_lstm, tiny, out_dir=scratch
+    )
+
+    assert sorted(p.name for p in MODEL_DIRS["lstm"].iterdir()) == before
+    assert sorted(p.name for p in train_sequence.METRICS_DIR.iterdir()) == metrics_before
+    for name in (
+        "tokenizer.joblib",
+        "model_final.keras",
+        "preprocessing.json",
+        "metrics.json",
+    ):
+        assert (scratch / name).is_file(), name
+    assert report["metrics"]["validation"]["accuracy"] >= 0.0
+
+
 def test_prepare_split_applies_the_requested_spec():
     from src.data import prepare_split
 

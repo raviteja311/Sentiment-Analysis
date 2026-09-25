@@ -246,3 +246,7 @@ models/roberta/training_args.bin
 
 # Download metadata huggingface_hub writes beside the fetched files.
 models/.cache/
+
+# Variant retrains from src/experiments.py. Only their JSON summaries in
+# reports/experiments/ are kept.
+reports/experiments/scratch/
