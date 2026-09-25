@@ -29,6 +29,30 @@ def test_perfect_predictions_score_one():
     assert metrics["f1_macro"] == 1.0
 
 
+def test_metrics_include_macro_recall():
+    # TweetEval's official sentiment metric. Two of three classes fully
+    # recalled and the third (label 2, both predicted as 1) not at all.
+    metrics = compute_metrics([0, 1, 2, 2], [0, 1, 1, 1])
+    assert metrics["recall_macro"] == pytest.approx((1 + 1 + 0) / 3)
+
+
+def test_table_has_a_macro_recall_column(sample_report):
+    header = evaluate.markdown_table([sample_report]).splitlines()[0]
+    assert "Macro recall" in header
+    assert f"{sample_report['metrics']['test']['recall_macro']:.4f}" in (
+        evaluate.markdown_table([sample_report])
+    )
+
+
+def test_table_shows_n_a_for_records_without_macro_recall(sample_report):
+    # Every committed record predates the metric; the table must still render.
+    old = dict(sample_report)
+    old["metrics"] = {"test": dict(sample_report["metrics"]["test"])}
+    del old["metrics"]["test"]["recall_macro"]
+    table = evaluate.markdown_table([old])
+    assert "n/a" in table.splitlines()[2]
+
+
 def test_metrics_include_per_class_and_confusion_matrix():
     metrics = compute_metrics([0, 1, 2], [0, 1, 2])
     assert len(metrics["f1_per_class"]) == len(LABELS)

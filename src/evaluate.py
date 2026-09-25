@@ -200,33 +200,46 @@ def _ranking_score(report: dict) -> tuple:
     return (-best, report.get("model", ""))
 
 
+_ROW = "| {name} | {split} | {size} | {acc:.4f} | {f1:.4f} | {recall} | {per} |"
+
+
 def markdown_table(reports: list[dict]) -> str:
     """Render reports as a Markdown table, ready to paste into the README."""
     if not reports:
         return "_No metrics recorded yet. Run `python -m src.evaluate`._"
 
     header = (
-        "| Model | Split | Examples | Accuracy | Macro F1 | "
+        "| Model | Split | Examples | Accuracy | Macro F1 | Macro recall | "
         + " | ".join(f"F1 {label}" for label in LABELS)
         + " |"
     )
-    divider = "|" + "---|" * (5 + len(LABELS))
+    divider = "|" + "---|" * (6 + len(LABELS))
     rows = [header, divider]
 
     for report in sorted(reports, key=_ranking_score):
         for split, metrics in report["metrics"].items():
             per_class = metrics.get("f1_per_class", [])
             rows.append(
-                "| {name} | {split} | {size} | {acc:.4f} | {f1:.4f} | {per} |".format(
+                _ROW.format(
                     name=report.get("display_name", report["model"]),
                     split=split,
                     size=example_count(report, split),
                     acc=metrics["accuracy"],
                     f1=metrics["f1_macro"],
+                    recall=_optional_score(metrics.get("recall_macro")),
                     per=" | ".join(f"{value:.4f}" for value in per_class),
                 )
             )
     return "\n".join(rows)
+
+
+def _optional_score(value) -> str:
+    """A score, or ``n/a`` for records written before the metric existed.
+
+    Macro recall was added after the committed records were produced, so the
+    table must render them until ``make evaluate`` is rerun, not crash.
+    """
+    return "n/a" if value is None else f"{value:.4f}"
 
 
 def main(argv=None) -> int:
