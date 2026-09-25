@@ -1,24 +1,9 @@
 import keras
-from keras.layers import GRU, Bidirectional, Dense, Dropout, Embedding, Input
+from keras.layers import GRU, Bidirectional, Dense, Dropout, Input
 from keras.models import Sequential
 
 from src.config import NUM_LABELS, SEQUENCE_CONFIG
-
-
-def _embedding(vocab_size, embed_dim, matrix):
-    """Embedding layer, optionally initialised from pretrained vectors.
-
-    Pretrained weights stay trainable: the vectors are a starting point,
-    and freezing them would stop the model adapting to this dataset.
-    """
-    if matrix is None:
-        return Embedding(input_dim=vocab_size, output_dim=embed_dim)
-    return Embedding(
-        input_dim=vocab_size,
-        output_dim=embed_dim,
-        embeddings_initializer=keras.initializers.Constant(matrix),
-        trainable=True,
-    )
+from src.models.embedding import build_embedding
 
 
 def build_gru(
@@ -35,7 +20,7 @@ def build_gru(
     model = Sequential(
         [
             Input(shape=(max_len,), dtype="int32"),
-            _embedding(vocab_size, embed_dim, embedding_matrix),
+            build_embedding(vocab_size, embed_dim, embedding_matrix),
             Bidirectional(GRU(128, return_sequences=True)),
             Dropout(0.35),
             Bidirectional(GRU(64)),

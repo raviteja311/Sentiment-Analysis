@@ -32,6 +32,7 @@ from src.data import describe, load_raw_dataset, prepare_split
 from src.utils.io import save_json
 from src.utils.metrics import build_report, compute_metrics
 from src.utils.preprocessing import write_artifact_spec
+from src.utils.sequences import texts_to_padded
 
 LOGGER = logging.getLogger(__name__)
 
@@ -61,18 +62,6 @@ def fit_tokenizer(texts, config: SequenceConfig = SEQUENCE_CONFIG):
     )
     tokenizer.fit_on_texts(texts)
     return tokenizer
-
-
-def texts_to_padded(tokenizer, texts, max_len: int = SEQUENCE_CONFIG.max_len):
-    """Encode texts as padded integer sequences of fixed length."""
-    from keras.utils import pad_sequences
-
-    return pad_sequences(
-        tokenizer.texts_to_sequences(texts),
-        maxlen=max_len,
-        padding="post",
-        truncating="post",
-    )
 
 
 def compute_class_weights(labels, strategy: str | None) -> dict[int, float] | None:

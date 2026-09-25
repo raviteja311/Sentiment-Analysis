@@ -6,6 +6,7 @@ an inference-only machine.
 
 import warnings
 
+import numpy as np
 import pytest
 
 from src.config import NUM_LABELS, SEQUENCE_CONFIG
@@ -64,3 +65,66 @@ def test_model_is_compiled_for_training(name, build):
 def test_final_layer_is_a_softmax(name, build):
     model = build(1_000)
     assert model.layers[-1].activation.__name__ == "softmax"
+
+
+# --- masking -------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("name, build", BUILDERS)
+def test_the_embedding_masks_padding(name, build):
+    embedding = build(1_000).layers[0]
+    assert embedding.mask_zero is True
+    mask = embedding.compute_mask(
+        np.array([[5, 6, 7] + [0] * (SEQUENCE_CONFIG.max_len - 3)])
+    )
+    assert mask is not None
+    assert np.asarray(mask)[0].tolist() == [True] * 3 + [False] * (
+        SEQUENCE_CONFIG.max_len - 3
+    )
+
+
+@pytest.mark.parametrize("name, build", BUILDERS)
+def test_the_pretrained_branch_masks_too(name, build):
+    matrix = np.zeros((1_000, SEQUENCE_CONFIG.embed_dim), dtype=np.float32)
+    embedding = build(1_000, embedding_matrix=matrix).layers[0]
+    assert embedding.mask_zero is True
+    assert embedding.trainable is True
+
+
+def test_both_architectures_share_one_embedding_builder():
+    from src.models import embedding, gru_model, lstm_model
+
+    assert lstm_model.build_embedding is embedding.build_embedding
+    assert gru_model.build_embedding is embedding.build_embedding
+
+
+@pytest.mark.parametrize("name, build", BUILDERS)
+def test_padding_length_does_not_change_the_output(name, build):
+    """The same tokens must score the same however much padding follows them.
+
+    Without masking the pad vector runs through every step after the text
+    ends, so 77 pads and 117 pads give different states. The pad vector is
+    set large here so that difference is not lost in float noise.
+    """
+    short, long = build(100, max_len=80), build(100, max_len=120)
+    weights = short.get_weights()
+    weights[0][0] = 5.0
+    short.set_weights(weights)
+    long.set_weights(weights)
+
+    tokens = [5, 6, 7]
+    from_short = short.predict(np.array([tokens + [0] * 77]), verbose=0)
+    from_long = long.predict(np.array([tokens + [0] * 117]), verbose=0)
+    np.testing.assert_allclose(from_short, from_long, atol=1e-6)
+
+
+@pytest.mark.parametrize("name, build", BUILDERS)
+def test_a_text_that_tokenizes_to_nothing_still_gets_a_distribution(name, build):
+    from src.utils.sequences import pad_sequences
+
+    model = build(100)
+    padded = pad_sequences([[]], SEQUENCE_CONFIG.max_len)
+    probs = model.predict(padded, verbose=0)
+    assert probs.shape == (1, NUM_LABELS)
+    assert np.isfinite(probs).all()
+    assert abs(probs.sum() - 1.0) < 1e-5

@@ -47,6 +47,7 @@ from src.config import (
     resolve_model,
 )
 from src.utils.preprocessing import artifact_spec, preprocess_tweet
+from src.utils.sequences import texts_to_padded
 
 LOGGER = logging.getLogger(__name__)
 
@@ -355,10 +356,20 @@ class SequencePredictor(Predictor):
         directory = MODEL_DIRS[key]
         self._tokenizer = joblib.load(directory / "tokenizer.joblib")
         self._model = load_model(str(directory / "model_final.keras"))
+        # A model trained with masking needs a text that tokenizes to nothing
+        # replaced by one OOV token, or its row is fully masked. The models
+        # trained before masking were never shown that and must keep getting
+        # the all-zero row they were trained on, so the substitution follows
+        # the artifact, not the current builder.
+        self._masks_padding = bool(getattr(self._model.layers[0], "mask_zero", False))
 
     def _predict_proba(self, cleaned: list[str]) -> np.ndarray:
-        sequences = self._tokenizer.texts_to_sequences(cleaned)
-        padded = _pad_sequences(sequences, SEQUENCE_CONFIG.max_len)
+        padded = texts_to_padded(
+            self._tokenizer,
+            cleaned,
+            SEQUENCE_CONFIG.max_len,
+            empty_to_oov=self._masks_padding,
+        )
         if len(padded) <= FAST_PATH_MAX_TEXTS:
             # model.predict builds a tf.data pipeline and an epoch loop on
             # every call, which for a handful of texts costs several times
@@ -483,12 +494,3 @@ def _order_by_label_index(probs: np.ndarray, classes) -> np.ndarray:
     for column, class_id in enumerate(classes):
         ordered[:, int(class_id)] = probs[:, column]
     return ordered
-
-
-def _pad_sequences(sequences, max_len: int) -> np.ndarray:
-    try:
-        from keras.utils import pad_sequences
-    except ImportError:  # pragma: no cover - Keras 2 layout
-        from tensorflow.keras.preprocessing.sequence import pad_sequences
-
-    return pad_sequences(sequences, maxlen=max_len, padding="post", truncating="post")

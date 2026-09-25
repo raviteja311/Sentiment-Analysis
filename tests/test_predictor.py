@@ -250,6 +250,42 @@ def test_the_single_step_call_matches_model_predict(monkeypatch):
 
 
 @requires_model("lstm")
+def test_a_model_trained_without_masking_keeps_its_all_zero_row_for_empty_text(
+    monkeypatch,
+):
+    # The shipped recurrent models predate masking. They were trained on
+    # all-zero rows for texts that tokenize to nothing and must keep getting
+    # them, so their outputs stay byte-for-byte what they were.
+    predictor = predictor_module.load_predictor("lstm")
+    if predictor._masks_padding:
+        pytest.skip("the lstm artifact on disk was trained with masking")
+    # Compare raw model outputs: predict_proba would also apply the fitted
+    # temperature, which is not what this test is about.
+    monkeypatch.setattr(predictor, "temperature", 1.0)
+    zeros = np.zeros((1, predictor_module.SEQUENCE_CONFIG.max_len), dtype=np.int32)
+    expected = predictor._model.predict_on_batch(zeros)
+    np.testing.assert_allclose(predictor.predict_proba(["!!!"]), expected, atol=1e-6)
+
+
+@requires_model("lstm")
+def test_a_model_trained_with_masking_gets_an_oov_token_for_empty_text(monkeypatch):
+    from src.utils import sequences
+
+    predictor = predictor_module.load_predictor("lstm")
+    monkeypatch.setattr(predictor, "_masks_padding", True)
+    seen = {}
+
+    def spy(tokenizer, texts, max_len, empty_to_oov):
+        seen["empty_to_oov"] = empty_to_oov
+        return sequences.texts_to_padded(tokenizer, texts, max_len, empty_to_oov)
+
+    monkeypatch.setattr(predictor_module, "texts_to_padded", spy)
+    probs = predictor.predict_proba(["!!!"])
+    assert seen == {"empty_to_oov": True}
+    assert probs.shape == (1, 3) and np.isfinite(probs).all()
+
+
+@requires_model("lstm")
 def test_large_batches_still_go_through_model_predict(monkeypatch):
     pytest.importorskip("tensorflow")
     predictor = predictor_module.load_predictor("lstm")
