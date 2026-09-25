@@ -6,7 +6,7 @@ import sys
 import numpy as np
 import pytest
 
-from src.utils import sequences
+from src.config import PROJECT_ROOT
 from src.utils.sequences import OOV_INDEX, pad_sequences, texts_to_padded
 
 
@@ -60,6 +60,4 @@ def test_the_module_needs_no_training_stack():
         "import sys; import src.utils.sequences; "
         "assert 'keras' not in sys.modules and 'tensorflow' not in sys.modules"
     )
-    subprocess.run(
-        [sys.executable, "-c", code], check=True, cwd=sequences.__file__ + "/../../.."
-    )
+    subprocess.run([sys.executable, "-c", code], check=True, cwd=PROJECT_ROOT)
