@@ -1,0 +1,38 @@
+{
+  "experiment": "class_weight",
+  "method": "class_weight=\"balanced\" against the served unweighted run",
+  "judged_on": "validation",
+  "served_class_weight": null,
+  "before": {
+    "accuracy": 0.6825,
+    "f1_macro": 0.6579730786934498,
+    "recall_macro": 0.6521356046672503,
+    "f1_per_class": [
+      0.5676126878130217,
+      0.7001034126163392,
+      0.7062031356509885
+    ]
+  },
+  "after": {
+    "accuracy": 0.6275,
+    "f1_macro": 0.6163738740083186,
+    "recall_macro": 0.6615877090560635,
+    "f1_per_class": [
+      0.5342019543973942,
+      0.6229307173513182,
+      0.6919889502762431
+    ]
+  },
+  "delta": {
+    "accuracy": -0.05500000000000005,
+    "f1_macro": -0.04159920468513123,
+    "recall_macro": 0.009452104388813165,
+    "f1_per_class": [
+      -0.0334107334156275,
+      -0.07717269526502102,
+      -0.014214185374745392
+    ]
+  },
+  "model": "gru",
+  "run_at": "2026-09-25T11:40:31+00:00"
+}

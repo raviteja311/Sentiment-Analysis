@@ -138,35 +138,59 @@ Positive recall is 0.55 and 0.58: over 40% of positive tweets are still read as
 something else, mostly neutral. The transformer does not share this failure
 mode (0.709 F1, 0.749 recall).
 
-**Why it happens, and what did not fix it.** The test split carries a very
-different class balance from training - 32.3% negative and 19.3% positive
-against 15.5% and 39.1% - so the models are deployed under a substantial label
-shift. Three interventions were measured and rejected: balanced class weights
-(worse overall), a decision bias fitted on validation (+0.024 positive F1 but
-costs accuracy and loses macro F1 on the GRU), and EM label-shift correction
-(catastrophic - it estimated the test prior as 77% negative and halved macro
-F1). What did work was giving the models pretrained meaning rather than
-re-weighting their existing predictions.
+**Why it happens.** The test split carries a very different class balance
+from training - 32.3% negative and 19.3% positive against 15.5% and 39.1% - so
+the models are deployed under a substantial label shift. What has helped is
+giving the models pretrained meaning, masked padding and better-normalised
+text rather than re-weighting their existing predictions; the interventions
+below were each measured and, with one exception, rejected.
 
-**Class imbalance is only partly addressed, and weighting it made things
-worse.** (Measured before the switch to pretrained embeddings; the conclusion
-was not retested afterwards.) The Logistic Regression uses `class_weight="balanced"`; the neural
-models deliberately do not. That looked like an oversight, so it was measured:
-both were retrained with balanced weights (negative 2.14, neutral 0.74,
-positive 0.85) and evaluated on test.
+**Interventions are judged on validation, never on test.** Earlier versions of
+this card compared class weights, a decision bias and a label-shift correction
+by their test scores. A choice made by reading test scores is a choice fitted
+to the test set, and the score reported afterwards no longer estimates
+anything. `make experiments` (`src/experiments.py`) therefore reruns all three
+reading only the 2,000-example validation split: class weights by retraining a
+variant into a scratch directory and comparing validation scores with the
+served run, the decision bias two-fold within validation so it is never scored
+on the half it was fitted to, and the EM prior estimate without labels. Test is
+consulted once, for the table above. Results for the 2026-09-25 artifacts,
+each cell before to after:
 
-| | LSTM | GRU |
-|---|---|---|
-| Accuracy | 0.6168 → 0.5961 | 0.6175 → 0.5798 |
-| Macro F1 | 0.5921 → 0.5838 | 0.5952 → 0.5727 |
-| F1 negative | 0.5942 → 0.6242 | 0.5980 → 0.6215 |
-| F1 neutral | 0.6598 → 0.5948 | 0.6573 → 0.5521 |
-| F1 positive | 0.5223 → 0.5324 | 0.5303 → 0.5446 |
+| Model | Experiment | Accuracy | Macro F1 | F1 negative | F1 neutral | F1 positive |
+|---|---|---|---|---|---|---|
+| lstm | class_weight | 0.6705 to 0.6285 (-0.0420) | 0.6450 to 0.6172 (-0.0278) | 0.5590 to 0.5385 (-0.0206) | 0.6947 to 0.6408 (-0.0539) | 0.6814 to 0.6724 (-0.0089) |
+| lstm | decision_bias | 0.6705 to 0.6850 (+0.0145) | 0.6441 to 0.6612 (+0.0171) | 0.5552 to 0.5733 (+0.0182) | 0.6948 to 0.6643 (-0.0305) | 0.6822 to 0.7460 (+0.0637) |
+| lstm | label_shift | 0.6705 to 0.6360 (-0.0345) | 0.6450 to 0.5961 (-0.0489) | 0.5590 to 0.5020 (-0.0571) | 0.6947 to 0.6860 (-0.0088) | 0.6814 to 0.6005 (-0.0809) |
+| gru | class_weight | 0.6825 to 0.6275 (-0.0550) | 0.6580 to 0.6164 (-0.0416) | 0.5676 to 0.5342 (-0.0334) | 0.7001 to 0.6229 (-0.0772) | 0.7062 to 0.6920 (-0.0142) |
+| gru | decision_bias | 0.6825 to 0.6925 (+0.0100) | 0.6570 to 0.6715 (+0.0144) | 0.5640 to 0.5873 (+0.0233) | 0.7001 to 0.6797 (-0.0204) | 0.7070 to 0.7474 (+0.0405) |
+| gru | label_shift | 0.6825 to 0.6640 (-0.0185) | 0.6580 to 0.6467 (-0.0113) | 0.5676 to 0.5806 (+0.0130) | 0.7001 to 0.6880 (-0.0122) | 0.7062 to 0.6715 (-0.0347) |
 
-Weighting buys 2-3 points on negative, the rare class, and about 1 on positive,
-and pays 6-10 points on neutral, the 45% majority. Both models lose accuracy and
-macro F1. The shipped artifacts are therefore unweighted; `SequenceConfig.class_weight`
-turns it back on for anyone who would rather have the negative-class recall.
+**Balanced class weights make things worse**, as they did before. The linear
+model uses `class_weight="balanced"`; the recurrent models deliberately do not.
+Retrained with balanced weights (negative 2.14, neutral 0.74, positive 0.85),
+both lose 4-6 points of accuracy and 3-4 of macro F1 on validation, paying on
+neutral, the 45% majority, and this time without even the negative-class gain
+the earlier test-judged comparison had seen. The shipped artifacts stay
+unweighted; `SequenceConfig.class_weight` turns weighting back on for anyone
+who wants it.
+
+**A decision bias helps on held-out validation**, which the test-judged
+comparison had denied it. A per-class offset on the log-probabilities, fitted
+to maximise macro F1 on one half of validation and scored on the other, adds
+about 1.5 points of macro F1 and 4-6 points of positive-class F1 to both
+models, at a cost of 2-3 points on neutral. The fitted offsets lower neutral
+and raise positive, the direction the label shift above predicts. It is
+recorded, not shipped: serving it would mean a decision rule other than the
+one the results table measures, and that is a change to make in a retrain,
+once, rather than as a post-hoc patch on the probabilities.
+
+**EM label-shift correction still hurts**, though less dramatically than on
+test, where it once estimated the prior as 77% negative. On validation, whose
+class balance is close to training's, it estimates 58% neutral for the LSTM
+and 21% negative for the GRU against an actual 43% and 16%, and costs 1-5
+points of macro F1. A prior estimate that is wrong on a split that barely
+shifted is not one to trust on a split that does.
 
 Note also that the smallest class is not the worst-scoring one. Positive is, for
 all three non-transformer models, despite having two and a half times more

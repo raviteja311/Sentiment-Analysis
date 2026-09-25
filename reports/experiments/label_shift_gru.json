@@ -1,0 +1,52 @@
+{
+  "experiment": "label_shift",
+  "method": "EM prior re-estimation (Saerens et al., 2002), unsupervised",
+  "judged_on": "validation",
+  "train_priors": {
+    "negative": 0.15549709525375424,
+    "neutral": 0.4532061821769155,
+    "positive": 0.3912967225693303
+  },
+  "estimated_priors": {
+    "negative": 0.20843211160659902,
+    "neutral": 0.47026446095145774,
+    "positive": 0.3213034274419436
+  },
+  "actual_priors": {
+    "negative": 0.156,
+    "neutral": 0.4345,
+    "positive": 0.4095
+  },
+  "before": {
+    "accuracy": 0.6825,
+    "f1_macro": 0.6579730786934498,
+    "recall_macro": 0.6521356046672503,
+    "f1_per_class": [
+      0.5676126878130217,
+      0.7001034126163392,
+      0.7062031356509885
+    ]
+  },
+  "after": {
+    "accuracy": 0.664,
+    "f1_macro": 0.6467024518745547,
+    "recall_macro": 0.6558058678311843,
+    "f1_per_class": [
+      0.5806451612903226,
+      0.6879505664263645,
+      0.6715116279069767
+    ]
+  },
+  "delta": {
+    "accuracy": -0.01849999999999996,
+    "f1_macro": -0.011270626818895124,
+    "recall_macro": 0.00367026316393404,
+    "f1_per_class": [
+      0.013032473477300965,
+      -0.012152846189974698,
+      -0.03469150774401175
+    ]
+  },
+  "model": "gru",
+  "run_at": "2026-09-25T11:40:31+00:00"
+}
