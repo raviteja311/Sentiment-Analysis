@@ -1,10 +1,26 @@
 {
   "checks": {
     "negation flips the label": {
-      "passed": 3,
+      "passed": 1,
       "total": 5,
-      "pass_rate": 0.6,
+      "pass_rate": 0.2,
       "failures": [
+        {
+          "text": "I like it",
+          "other": "I don't like it",
+          "labels": [
+            "neutral",
+            "neutral"
+          ]
+        },
+        {
+          "text": "this is good",
+          "other": "this is not good",
+          "labels": [
+            "positive",
+            "positive"
+          ]
+        },
         {
           "text": "the service was great",
           "other": "the service wasn't great",
@@ -24,16 +40,10 @@
       ]
     },
     "entities read as what they encode": {
-      "passed": 2,
+      "passed": 3,
       "total": 3,
-      "pass_rate": 0.6666666666666666,
-      "failures": [
-        {
-          "text": "<3 this song",
-          "expected": "positive",
-          "label": "neutral"
-        }
-      ]
+      "pass_rate": 1.0,
+      "failures": []
     },
     "emoji carry sentiment": {
       "passed": 3,
@@ -60,12 +70,12 @@
       "failures": []
     }
   },
-  "passed": 14,
+  "passed": 13,
   "total": 18,
-  "pass_rate": 0.7777777777777778,
+  "pass_rate": 0.7222222222222222,
   "model": "lstm",
-  "version": "02817a7de692",
-  "checked_at": "2026-09-25T10:27:16+00:00",
+  "version": "d4ecbf358f09",
+  "checked_at": "2026-09-25T10:58:14+00:00",
   "labels": [
     "negative",
     "neutral",

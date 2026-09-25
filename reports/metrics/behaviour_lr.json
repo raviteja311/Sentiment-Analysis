@@ -38,15 +38,10 @@
       "failures": []
     },
     "emoji carry sentiment": {
-      "passed": 2,
+      "passed": 3,
       "total": 4,
-      "pass_rate": 0.5,
+      "pass_rate": 0.75,
       "failures": [
-        {
-          "text": "this is \ud83d\ude0d",
-          "expected": "positive",
-          "label": "neutral"
-        },
         {
           "text": "what a day \ud83d\ude21",
           "expected": "negative",
@@ -67,12 +62,12 @@
       "failures": []
     }
   },
-  "passed": 13,
+  "passed": 14,
   "total": 18,
-  "pass_rate": 0.7222222222222222,
+  "pass_rate": 0.7777777777777778,
   "model": "lr",
-  "version": "b252de109a85",
-  "checked_at": "2026-09-25T10:27:09+00:00",
+  "version": "b92a341725eb",
+  "checked_at": "2026-09-25T10:58:10+00:00",
   "labels": [
     "negative",
     "neutral",

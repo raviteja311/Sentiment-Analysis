@@ -11,22 +11,30 @@ Measured on the full test split (12,284 tweets). Every figure here is generated
 by `make evaluate` and read from `reports/metrics/*.json` - **do not edit this
 table by hand**, regenerate it.
 
-| Model | Split | Examples | Accuracy | Macro F1 | F1 negative | F1 neutral | F1 positive |
-|---|---|---|---|---|---|---|---|
-| Twitter-RoBERTa | validation | 2000 | 0.7945 | 0.7864 | 0.7539 | 0.7637 | 0.8417 |
-| Twitter-RoBERTa | test | 12284 | 0.7109 | 0.7124 | 0.7328 | 0.6954 | 0.7091 |
-| Bi-GRU | validation | 2000 | 0.6800 | 0.6620 | 0.5882 | 0.6937 | 0.7041 |
-| Bi-GRU | test | 12284 | 0.6343 | 0.6223 | 0.6317 | 0.6549 | 0.5803 |
-| Bi-LSTM | validation | 2000 | 0.6715 | 0.6470 | 0.5612 | 0.6934 | 0.6864 |
-| Bi-LSTM | test | 12284 | 0.6370 | 0.6181 | 0.6063 | 0.6757 | 0.5722 |
-| Logistic Regression | validation | 2000 | 0.6550 | 0.6349 | 0.5344 | 0.6496 | 0.7208 |
-| Logistic Regression | test | 12284 | 0.5806 | 0.5768 | 0.5990 | 0.5774 | 0.5540 |
+| Model | Split | Examples | Accuracy | Macro F1 | Macro recall | F1 negative | F1 neutral | F1 positive |
+|---|---|---|---|---|---|---|---|---|
+| Twitter-RoBERTa (base, not fine-tuned) | test | 12284 | 0.7246 | 0.7240 | 0.7276 | 0.7447 | 0.7150 | 0.7125 |
+| Twitter-RoBERTa | validation | 2000 | 0.7945 | 0.7864 | n/a | 0.7539 | 0.7637 | 0.8417 |
+| Twitter-RoBERTa | test | 12284 | 0.7109 | 0.7124 | n/a | 0.7328 | 0.6954 | 0.7091 |
+| Bi-LSTM | validation | 2000 | 0.6705 | 0.6450 | 0.6359 | 0.5590 | 0.6947 | 0.6814 |
+| Bi-LSTM | test | 12284 | 0.6435 | 0.6304 | 0.6188 | 0.6140 | 0.6756 | 0.6015 |
+| Bi-GRU | validation | 2000 | 0.6825 | 0.6580 | 0.6521 | 0.5676 | 0.7001 | 0.7062 |
+| Bi-GRU | test | 12284 | 0.6387 | 0.6300 | 0.6245 | 0.6220 | 0.6615 | 0.6066 |
+| Logistic Regression | validation | 2000 | 0.6575 | 0.6390 | 0.6649 | 0.5450 | 0.6505 | 0.7216 |
+| Logistic Regression | test | 12284 | 0.5848 | 0.5825 | 0.5970 | 0.6029 | 0.5781 | 0.5665 |
 
 The transformer leads by a clear margin. The two recurrent models are within
 half a point of each other - treat them as equivalent - and beat the linear
 baseline by 5-6 points of accuracy. Both initialise their embeddings from
-GloVe Twitter vectors (95.5% vocabulary coverage), which is worth roughly
+GloVe Twitter vectors (95.8% vocabulary coverage), which is worth roughly
 +0.03 macro F1 and +0.05 positive-class F1 over learning them from scratch.
+
+The first row is the transformer's base checkpoint exactly as published,
+without our fine-tuning, scored by `python -m src.evaluate --include-base`.
+It is already fine-tuned on this dataset, and it currently scores **above**
+our fine-tuned run on every test metric; see the model card for what that
+means and what is being done about it. Macro recall is TweetEval's official
+metric for this task; `n/a` marks records written before it was reported.
 See [MODEL_CARD.md](MODEL_CARD.md) for limitations and intended use.
 
 Each record in `reports/metrics/` stores the hyperparameters, the split sizes and
@@ -244,21 +252,23 @@ edit it.
 | Model | Temperature | ECE before | ECE after | Mean confidence before | after | Accuracy |
 |---|---|---|---|---|---|---|
 | roberta | 1.99 | 0.2039 | 0.0865 | 0.915 | 0.796 | 0.7109 |
-| lstm | 1.12 | 0.0482 | 0.0248 | 0.684 | 0.659 | 0.6370 |
-| gru | 1.18 | 0.0510 | 0.0226 | 0.683 | 0.649 | 0.6343 |
-| lr | 1.00 (not adopted) | 0.0444 | 0.0444 | 0.611 | 0.611 | 0.5806 |
+| lstm | 1.00 (not adopted) | 0.0312 | 0.0312 | 0.672 | 0.672 | 0.6435 |
+| gru | 1.12 | 0.0319 | 0.0238 | 0.656 | 0.634 | 0.6387 |
+| lr | 1.00 (not adopted) | 0.0442 | 0.0442 | 0.613 | 0.613 | 0.5848 |
 
 Fitted on validation, measured on test. Temperature scaling is monotonic, so no
 prediction changes and the results table above is unaffected - only the spread
 of the probabilities moves.
 
-The linear baseline is left uncalibrated. The temperature is constrained to at
-least 1.0, so calibration can only soften confidence, and the bounded fit lands
-on exactly 1.0. Unconstrained, it fits 0.94 on validation and gets *worse* on
-test (ECE 0.0444 -> 0.0517): the model is underconfident on validation (63.3%
-confidence, 65.5% accuracy) and overconfident on test (61.1% confidence, 58.1%
-accuracy), because validation is the easier split. It is therefore left alone
-rather than sharpened.
+The linear baseline and the Bi-LSTM are left uncalibrated. The temperature is
+constrained to at least 1.0, so calibration can only soften confidence, and a
+candidate is adopted only when it also lowers ECE on validation folds it was
+not fitted to. For the linear model the bounded fit lands on exactly 1.0: it
+is underconfident on validation and overconfident on test (61.3% confidence,
+58.5% accuracy), because validation is the easier split, and sharpening it
+would overstate confidence. For the retrained Bi-LSTM the candidate (1.11)
+gained nothing held out, and its raw ECE of 0.031 is already the best of the
+non-transformer models, so it too is served at 1.0.
 
 ## Retraining
 

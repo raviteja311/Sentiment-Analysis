@@ -386,21 +386,19 @@ def test_an_unreadable_spec_file_makes_the_model_unavailable(monkeypatch, tmp_pa
 
 
 @requires_model("lr")
-def test_the_committed_lr_pipeline_still_scores_exactly_as_before():
-    # Captured before preprocessing was versioned. The committed pipeline has
-    # no preprocessing.json, so it must keep getting glove-v1 text and keep
-    # producing these numbers until it is retrained.
+def test_the_committed_lr_pipeline_is_served_with_the_spec_it_was_trained_with():
+    # The spec beside the artifact is what the predictor uses; the spec in the
+    # metrics record is what training says it used. They must be the same
+    # artifact's story. (Before preprocessing was versioned this test pinned
+    # the pipeline's exact probabilities to prove nothing had shifted; that
+    # pipeline has since been retrained under glove-v2.)
+    import json
+
+    from src.config import METRICS_DIR
+
     predictor = load_predictor("lr")
-    assert predictor.preprocessing == "glove-v1"
-    golden = {
-        "I like it": [0.4005378, 0.2354404, 0.3640219],
-        "this is fantastic": [0.1950378, 0.0464955, 0.7584667],
-        "absolutely awful, i hate it": [0.9945406, 0.0032681, 0.0021913],
-        "the meeting is at noon": [0.0634701, 0.5976223, 0.3389075],
-    }
-    for text, expected in golden.items():
-        probs = predictor.predict_proba([text])[0]
-        np.testing.assert_allclose(probs, expected, atol=1e-6)
+    record = json.loads((METRICS_DIR / "lr.json").read_text(encoding="utf-8"))
+    assert predictor.preprocessing == record["hyperparameters"]["preprocessing"]
 
 
 @requires_model("lr")
