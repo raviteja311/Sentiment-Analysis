@@ -21,6 +21,9 @@ models exist.
 
 from __future__ import annotations
 
+import contextlib
+import logging
+import os
 import threading
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -45,11 +48,79 @@ from src.config import (
 )
 from src.utils.preprocessing import preprocess_tweet
 
+LOGGER = logging.getLogger(__name__)
+
 # First bytes of a Git LFS pointer file, per the v1 pointer spec.
 LFS_POINTER_PREFIX = b"version https://git-lfs"
 
 LFS_HINT = "Run `git lfs install && git lfs pull` to download it"
 FETCH_HINT = "Run `make fetch-weights` to download it"
+
+# Up to this many texts the Keras models are called directly; above it they go
+# through model.predict, whose batching pays off. See SequencePredictor.
+FAST_PATH_MAX_TEXTS = 64
+
+
+# ---------------------------------------------------------------------------
+# Concurrency
+# ---------------------------------------------------------------------------
+
+
+def inference_limit() -> int | None:
+    """``MAX_CONCURRENT_INFERENCE`` as an int, or None for unlimited."""
+    raw = os.environ.get("MAX_CONCURRENT_INFERENCE", "").strip()
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        LOGGER.warning("MAX_CONCURRENT_INFERENCE=%r is not a number; ignored.", raw)
+        return None
+    return value if value > 0 else None
+
+
+def build_inference_slots(limit: int | None) -> threading.BoundedSemaphore | None:
+    return threading.BoundedSemaphore(limit) if limit else None
+
+
+# Sync FastAPI endpoints run in a 40-thread pool, so forty simultaneous
+# requests mean forty forward passes fighting for the same cores, every one of
+# them slower than if they had queued. With a cap set, the surplus waits here
+# instead of in the CPU scheduler. Unset means unlimited, which is the old
+# behaviour.
+_INFERENCE_SLOTS = build_inference_slots(inference_limit())
+
+
+@contextlib.contextmanager
+def _inference_slot():
+    slots = _INFERENCE_SLOTS
+    if slots is None:
+        yield
+        return
+    with slots:
+        yield
+
+
+def configure_torch_threads(torch_module) -> int | None:
+    """Apply ``TORCH_NUM_THREADS`` to torch, returning the count or None.
+
+    Torch defaults to one intra-op thread per core, which on a shared node
+    competes with everything else on the box and, combined with the request
+    thread pool, oversubscribes it. Called once, at load, because
+    ``set_num_threads`` is process-wide.
+    """
+    raw = os.environ.get("TORCH_NUM_THREADS", "").strip()
+    if not raw:
+        return None
+    try:
+        threads = int(raw)
+    except ValueError:
+        LOGGER.warning("TORCH_NUM_THREADS=%r is not a number; ignored.", raw)
+        return None
+    if threads <= 0:
+        return None
+    torch_module.set_num_threads(threads)
+    return threads
 
 
 class ModelUnavailableError(RuntimeError):
@@ -205,7 +276,8 @@ class Predictor:
         if not texts:
             return np.zeros((0, NUM_LABELS), dtype=np.float32)
         cleaned = [preprocess_tweet(text) for text in texts]
-        probs = np.asarray(self._predict_proba(cleaned), dtype=np.float32)
+        with _inference_slot():
+            probs = np.asarray(self._predict_proba(cleaned), dtype=np.float32)
         if probs.shape != (len(texts), NUM_LABELS):
             raise RuntimeError(
                 f"{self.key} returned probabilities of shape {probs.shape}, "
@@ -275,6 +347,11 @@ class SequencePredictor(Predictor):
     def _predict_proba(self, cleaned: list[str]) -> np.ndarray:
         sequences = self._tokenizer.texts_to_sequences(cleaned)
         padded = _pad_sequences(sequences, SEQUENCE_CONFIG.max_len)
+        if len(padded) <= FAST_PATH_MAX_TEXTS:
+            # model.predict builds a tf.data pipeline and an epoch loop on
+            # every call, which for a handful of texts costs several times
+            # the forward pass itself. Calling the model directly skips that.
+            return np.asarray(self._model(padded, training=False))
         return self._model.predict(padded, verbose=0)
 
 
@@ -289,6 +366,7 @@ class RobertaPredictor(Predictor):
         self._torch = torch
         self._batch_size = batch_size
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        configure_torch_threads(torch)
 
         self._tokenizer = AutoTokenizer.from_pretrained(str(ROBERTA_DIR), use_fast=True)
         self._model = AutoModelForSequenceClassification.from_pretrained(str(ROBERTA_DIR))
@@ -308,7 +386,9 @@ class RobertaPredictor(Predictor):
                 max_length=ROBERTA_CONFIG.max_len,
             )
             encoded = {key: value.to(self.device) for key, value in encoded.items()}
-            with torch.no_grad():
+            # inference_mode goes further than no_grad: it also skips the
+            # version counters and view tracking autograd keeps on tensors.
+            with torch.inference_mode():
                 logits = self._model(**encoded).logits
             batches.append(torch.softmax(logits, dim=-1).cpu().numpy())
         return np.vstack(batches)

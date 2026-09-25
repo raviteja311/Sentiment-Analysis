@@ -202,3 +202,85 @@ def test_batch_runs_one_forward_pass_for_the_whole_batch(api_client, monkeypatch
     monkeypatch.setattr(predictor, "predict_proba", counting)
     api_client.post("/predict/batch", json={"texts": ["a", "b", "c", "d"], "model": "lr"})
     assert calls == [4]
+
+
+# --- warm-up ----------------------------------------------------------------
+#
+# The lifespan handler only runs when the TestClient is used as a context
+# manager, which is why these tests build their own client rather than using
+# the api_client fixture.
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        (None, []),
+        ("", []),
+        ("lr", ["lr"]),
+        ("lr, roberta", ["lr", "roberta"]),
+        ("ALL", ["lr", "lstm", "gru", "roberta"]),
+    ],
+)
+def test_preload_list_is_read_from_the_environment(monkeypatch, value, expected):
+    import api.main as api_main
+
+    if value is None:
+        monkeypatch.delenv("PRELOAD_MODELS", raising=False)
+    else:
+        monkeypatch.setenv("PRELOAD_MODELS", value)
+    assert api_main.preload_list() == expected
+
+
+@requires_model("lr")
+def test_preloaded_models_are_loaded_before_the_first_request(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from api.main import app
+
+    monkeypatch.setenv("PRELOAD_MODELS", "lr")
+    with TestClient(app) as client:
+        status = client.get("/models").json()["models"]
+    assert status["lr"]["loaded"] is True
+
+
+def test_nothing_is_preloaded_by_default(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from api.main import app
+    from src.inference.predictor import loaded_models
+
+    monkeypatch.delenv("PRELOAD_MODELS", raising=False)
+    with TestClient(app) as client:
+        assert client.get("/health").status_code == 200
+    assert loaded_models() == {}
+
+
+def test_an_unknown_or_unavailable_preload_name_does_not_stop_startup(
+    monkeypatch, lfs_pointer
+):
+    from fastapi.testclient import TestClient
+
+    from api.main import app
+    from src.inference import predictor as predictor_module
+
+    monkeypatch.setitem(predictor_module.REQUIRED_ARTIFACTS, "gru", (lfs_pointer,))
+    monkeypatch.setenv("PRELOAD_MODELS", "nope,gru")
+    with TestClient(app) as client:
+        assert client.get("/health").status_code == 200
+    assert "gru" not in predictor_module.loaded_models()
+
+
+def test_a_loader_that_raises_does_not_stop_startup(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from api.main import app
+    from src.inference import predictor as predictor_module
+
+    def broken():
+        raise RuntimeError("corrupt archive")
+
+    monkeypatch.setitem(predictor_module._PREDICTORS, "lstm", broken)
+    monkeypatch.setenv("PRELOAD_MODELS", "lstm")
+    with TestClient(app) as client:
+        assert client.get("/health").status_code == 200
+    assert "lstm" not in predictor_module.loaded_models()

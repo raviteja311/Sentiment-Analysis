@@ -129,6 +129,143 @@ def test_probability_columns_follow_label_index_not_column_order(classes, expect
 # --- predictions against real artifacts ------------------------------------
 
 
+# --- serving performance ----------------------------------------------------
+
+
+def _stub_predictor(forward):
+    """A Predictor whose forward pass is `forward`, with no artifacts needed."""
+    stub = predictor_module.Predictor.__new__(predictor_module.Predictor)
+    stub.key = "lr"
+    stub.temperature = 1.0
+    stub.version = None
+    stub._predict_proba = forward
+    return stub
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [(None, None), ("", None), ("4", 4), ("0", None), ("-2", None), ("many", None)],
+)
+def test_the_inference_cap_is_read_from_the_environment(monkeypatch, value, expected):
+    if value is None:
+        monkeypatch.delenv("MAX_CONCURRENT_INFERENCE", raising=False)
+    else:
+        monkeypatch.setenv("MAX_CONCURRENT_INFERENCE", value)
+    assert predictor_module.inference_limit() == expected
+
+
+def test_no_cap_means_no_semaphore():
+    assert predictor_module.build_inference_slots(None) is None
+    assert predictor_module.build_inference_slots(2) is not None
+
+
+def test_the_cap_bounds_simultaneous_forward_passes(monkeypatch):
+    import threading
+
+    monkeypatch.setattr(
+        predictor_module, "_INFERENCE_SLOTS", predictor_module.build_inference_slots(1)
+    )
+    inside = 0
+    peak = 0
+    guard = threading.Lock()
+
+    def forward(cleaned):
+        nonlocal inside, peak
+        with guard:
+            inside += 1
+            peak = max(peak, inside)
+        threading.Event().wait(0.02)
+        with guard:
+            inside -= 1
+        return np.full((len(cleaned), 3), 1 / 3, dtype=np.float32)
+
+    stub = _stub_predictor(forward)
+    threads = [
+        threading.Thread(target=stub.predict_proba, args=(["x"],)) for _ in range(6)
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert peak == 1
+
+
+def test_without_a_cap_forward_passes_run_concurrently(monkeypatch):
+    import threading
+
+    monkeypatch.setattr(predictor_module, "_INFERENCE_SLOTS", None)
+    # Every call has to be inside the forward pass at once for the barrier to
+    # open; with a cap of one this would time out instead.
+    barrier = threading.Barrier(3, timeout=5)
+
+    def forward(cleaned):
+        barrier.wait()
+        return np.full((len(cleaned), 3), 1 / 3, dtype=np.float32)
+
+    stub = _stub_predictor(forward)
+    threads = [
+        threading.Thread(target=stub.predict_proba, args=(["x"],)) for _ in range(3)
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert barrier.broken is False
+
+
+class _FakeTorch:
+    def __init__(self):
+        self.calls = []
+
+    def set_num_threads(self, n):
+        self.calls.append(n)
+
+
+@pytest.mark.parametrize(
+    "value, calls", [(None, []), ("", []), ("3", [3]), ("0", []), ("lots", [])]
+)
+def test_torch_threads_follow_the_environment(monkeypatch, value, calls):
+    if value is None:
+        monkeypatch.delenv("TORCH_NUM_THREADS", raising=False)
+    else:
+        monkeypatch.setenv("TORCH_NUM_THREADS", value)
+    torch = _FakeTorch()
+    predictor_module.configure_torch_threads(torch)
+    assert torch.calls == calls
+
+
+@requires_model("lstm")
+def test_the_direct_call_matches_model_predict(monkeypatch):
+    pytest.importorskip("tensorflow")
+    texts = ["what a great day", "this is awful", "the meeting is at noon", "!!!"]
+    predictor = predictor_module.load_predictor("lstm")
+
+    fast = predictor.predict_proba(texts)
+    monkeypatch.setattr(predictor_module, "FAST_PATH_MAX_TEXTS", 0)
+    slow = predictor.predict_proba(texts)
+
+    np.testing.assert_allclose(fast, slow, atol=1e-5)
+    assert fast.shape == (len(texts), 3)
+
+
+@requires_model("lstm")
+def test_large_batches_still_go_through_model_predict(monkeypatch):
+    pytest.importorskip("tensorflow")
+    predictor = predictor_module.load_predictor("lstm")
+    calls = []
+    original = predictor._model.predict
+
+    def counting(*args, **kwargs):
+        calls.append(len(args[0]))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(predictor._model, "predict", counting)
+    predictor.predict_proba(["fine"] * (predictor_module.FAST_PATH_MAX_TEXTS + 1))
+    assert calls == [predictor_module.FAST_PATH_MAX_TEXTS + 1]
+    predictor.predict_proba(["fine"] * 2)
+    assert calls == [predictor_module.FAST_PATH_MAX_TEXTS + 1]
+
+
 @requires_model("lr")
 def test_predict_returns_a_known_label():
     prediction = load_predictor("lr").predict("i absolutely love this")

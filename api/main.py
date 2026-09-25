@@ -14,11 +14,16 @@ things to whatever is in front of it:
 
 Models load lazily on first use rather than at startup, so the container becomes
 healthy quickly and a broken artifact cannot prevent the process from starting.
+``PRELOAD_MODELS`` opts into warming some or all of them up before the first
+request; a model that fails to load then is logged and skipped, so the same
+guarantee holds.
 """
 
 from __future__ import annotations
 
 import logging
+import os
+from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import FastAPI, HTTPException, Request, status
@@ -48,12 +53,54 @@ MAX_BATCH_SIZE = 256
 
 configure_logging()
 
+
+def preload_list() -> list[str]:
+    """Model keys named by ``PRELOAD_MODELS``: comma-separated, or ``all``."""
+    raw = os.environ.get("PRELOAD_MODELS", "").strip()
+    if not raw:
+        return []
+    if raw.lower() == "all":
+        return list(MODEL_KEYS)
+    return [name.strip() for name in raw.split(",") if name.strip()]
+
+
+def preload_models(names: list[str]) -> list[str]:
+    """Load models ahead of the first request; returns the keys that loaded.
+
+    Never fatal. Startup must not depend on an artifact being present or
+    loadable - that is the guarantee lazy loading gives - so an unknown name,
+    a missing artifact or a loader that raises is logged and skipped.
+    """
+    loaded = []
+    for name in names:
+        try:
+            predictor = load_predictor(name)
+        except (ModelUnavailableError, KeyError) as error:
+            LOGGER.warning("PRELOAD_MODELS: skipped %s: %s", name, str(error).strip("'"))
+        except Exception:
+            LOGGER.exception("PRELOAD_MODELS: %s failed to load and was skipped", name)
+        else:
+            loaded.append(predictor.key)
+            LOGGER.info(
+                "preloaded model",
+                extra={"model": predictor.key, "model_version": predictor.version},
+            )
+    return loaded
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    preload_models(preload_list())
+    yield
+
+
 app = FastAPI(
     title="Sentiment Analysis API",
     description=(
         "Three-class tweet sentiment classification: negative, neutral, positive."
     ),
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Per-IP rate limiting. A backstop for a single process, not a substitute for

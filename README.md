@@ -150,6 +150,15 @@ version nothing is using.
 
 Interactive docs are at `/docs`.
 
+Models load on first use, so the process is up quickly and a broken artifact
+cannot stop it from starting. Three optional variables tune serving:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PRELOAD_MODELS` | unset | keys to load at startup, e.g. `lr,roberta` or `all`; one that fails to load is logged and skipped |
+| `MAX_CONCURRENT_INFERENCE` | unset (unlimited) | cap on simultaneous forward passes; the endpoints run in a 40-thread pool, which oversubscribes a CPU |
+| `TORCH_NUM_THREADS` | torch's default | intra-op threads for the transformer, applied once at load |
+
 ### Logging
 
 The service logs one JSON object per line. Every request is assigned an
