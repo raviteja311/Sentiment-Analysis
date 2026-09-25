@@ -215,8 +215,11 @@ class LRConfig:
     max_iter: int = 2_000
     class_weight: str = "balanced"
     # scikit-learn's default drops the angle brackets, merging <user>
-    # into the ordinary noun "user"; this keeps them whole.
-    token_pattern: str = r"(?u)<\w+>|\b\w\w+\b"
+    # into the ordinary noun "user"; this keeps them whole. "<3" is kept as
+    # a token too: glove-v2 unescapes "&lt;3" into it, and it is one of the
+    # dataset's most common sentiment markers. Negation needs no rule of its
+    # own, because glove-v2 turns "can't" into the words "can not".
+    token_pattern: str = r"(?u)<\w+>|<3|\b\w\w+\b"
 
 
 @dataclass(frozen=True)

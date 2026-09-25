@@ -56,13 +56,38 @@ def test_lr_classifier_matches_config(field):
 @pytest.mark.skipif(
     not (LR_DIR / "pipeline.joblib").is_file(), reason="LR pipeline not present"
 )
-def test_committed_lr_pipeline_was_trained_with_the_configured_token_pattern():
-    """The artifact on disk must agree with the config that claims to describe it."""
+def test_committed_lr_pipeline_was_trained_with_the_recorded_token_pattern():
+    """The artifact on disk must agree with the record that claims to describe it.
+
+    The record, not today's config: the config describes the next training
+    run, and between a config change and a retrain the two legitimately
+    differ. What must never differ is the artifact and its own provenance.
+    """
+    import json
+
     import joblib
 
+    from src.config import METRICS_DIR
+
     tfidf = joblib.load(LR_DIR / "pipeline.joblib").named_steps["tfidf"]
-    assert tfidf.token_pattern == LR_CONFIG.token_pattern
+    record = json.loads((METRICS_DIR / "lr.json").read_text(encoding="utf-8"))
+    assert tfidf.token_pattern == record["hyperparameters"]["token_pattern"]
     assert "<user>" in tfidf.vocabulary_
+
+
+def test_lr_analyzer_keeps_placeholders_hearts_and_negation():
+    # The heart survives only because glove-v2 unescapes "&lt;3" and the
+    # pattern keeps "<3"; the negation survives only because glove-v2 turns
+    # "can't" into "can not". Both used to reach the model as "lt" and "can".
+    from src.utils.preprocessing import preprocess_tweet
+
+    analyzer = _lr_pipeline().named_steps["tfidf"].build_analyzer()
+    tokens = analyzer(preprocess_tweet("@bob &lt;3 you but I can't stand it", "glove-v2"))
+    unigrams = [token for token in tokens if " " not in token]
+    assert "<user>" in unigrams
+    assert "<3" in unigrams
+    assert "not" in unigrams
+    assert "lt" not in unigrams and "amp" not in unigrams
 
 
 # --- the LR training run --------------------------------------------------------
