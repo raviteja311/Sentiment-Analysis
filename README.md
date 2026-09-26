@@ -1,5 +1,7 @@
 # Sentiment Analysis
 
+[![CI](https://github.com/raviteja311/Sentiment-Analysis/actions/workflows/ci.yml/badge.svg)](https://github.com/raviteja311/Sentiment-Analysis/actions/workflows/ci.yml) [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
 Three-class sentiment classification for tweets - **negative**, **neutral**, **positive** -
 with four models trained on [`cardiffnlp/tweet_eval`](https://huggingface.co/datasets/cardiffnlp/tweet_eval)
 (`sentiment` config). Served as a FastAPI service and a Streamlit app, with a
@@ -286,9 +288,9 @@ non-transformer models, so it too is served at 1.0.
 
 ```bash
 pip install -r requirements/train.txt
-make train-lr        # ~5 min, CPU
-make train-lstm      # ~6 min, CPU
-make train-gru       # ~6 min, CPU
+make train-lr        # ~30 s, CPU
+make train-lstm      # ~8 min, CPU
+make train-gru       # ~8 min, CPU
 make train-roberta   # ~2h15m on a GTX 1650 with mixed precision
 make evaluate        # scores every available model, regenerates the table above
 python -m src.evaluate --include-base   # also the base checkpoint, not fine-tuned
@@ -340,7 +342,7 @@ what keeps it inside 4 GB of VRAM.
 ## Tests and quality
 
 ```bash
-make test         # 480 tests
+make test         # 512 tests
 make lint         # ruff + black
 make lock         # regenerate requirements/*.lock after editing requirements/*.txt
 ```
@@ -389,3 +391,7 @@ from the image and a 503 when no artifacts are present.
 ## License
 
 See [LICENSE](LICENSE).
+
+## Author
+
+**Jetti Raviteja** · [Portfolio](https://portfolio-website-drab-six-15.vercel.app) · [GitHub](https://github.com/raviteja311) · [LinkedIn](https://www.linkedin.com/in/jettiraviteja/)
