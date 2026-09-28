@@ -394,4 +394,4 @@ See [LICENSE](LICENSE).
 
 ## Author
 
-**Jetti Raviteja** · [Portfolio](https://portfolio-website-drab-six-15.vercel.app) · [GitHub](https://github.com/raviteja311) · [LinkedIn](https://www.linkedin.com/in/jettiraviteja/)
+**Jetti Raviteja** · [Portfolio](https://jettiraviteja.vercel.app) · [GitHub](https://github.com/raviteja311) · [LinkedIn](https://www.linkedin.com/in/jettiraviteja/)
