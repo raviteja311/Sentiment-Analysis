@@ -64,7 +64,9 @@ def test_the_transitive_closure_is_locked(name):
 @pytest.mark.parametrize("name", ENTRY_POINTS)
 def test_the_lock_carries_the_cpu_index_and_no_cuda(name):
     text = (REQUIREMENTS / f"{name}.lock").read_text(encoding="utf-8")
-    assert "--extra-index-url https://download.pytorch.org/whl/cpu" in text
+    lines = text.splitlines()
+    assert "--index-url https://download.pytorch.org/whl/cpu" in lines
+    assert "--extra-index-url https://pypi.org/simple" in lines
     assert "torch==2.9.1+cpu" in text
     assert not any(line.startswith("nvidia-") for line in text.splitlines())
 

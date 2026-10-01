@@ -36,9 +36,13 @@ install-train:  ## Install everything needed to retrain
 # unsafe-best-match is what lets a package be taken from the extra index when
 # its best version lives there. --generate-hashes records the sha256 of every
 # distribution, so pip installs from a lock in hash-checking mode and refuses
-# any file whose contents differ from what was locked.
+# any file whose contents differ from what was locked. PyPI is given priority
+# (uv ranks --extra-index-url above --index-url) because the CPU index mirrors
+# packages such as markupsafe without publishing file hashes; resolved from
+# there, a lock records one hash and pip rejects every other platform's wheel.
 LOCK_FLAGS = --universal --python-version 3.11 \
-	--extra-index-url https://download.pytorch.org/whl/cpu \
+	--index-url https://download.pytorch.org/whl/cpu \
+	--extra-index-url https://pypi.org/simple \
 	--index-strategy unsafe-best-match --emit-index-url --no-annotate \
 	--generate-hashes
 
