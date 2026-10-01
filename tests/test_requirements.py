@@ -77,6 +77,23 @@ def test_the_lock_is_universal(name):
     assert "tensorflow==2.21.0 ;" in text
 
 
+@pytest.mark.parametrize("name", ENTRY_POINTS)
+def test_every_locked_pin_carries_a_hash(name):
+    # One hash puts pip in hash-checking mode for the whole file, so a pin
+    # without one would make the lock uninstallable, not merely unverified.
+    lines = (REQUIREMENTS / f"{name}.lock").read_text(encoding="utf-8").splitlines()
+    for line, following in zip(lines, [*lines[1:], ""], strict=True):
+        if PIN.match(line):
+            assert following.strip().startswith(
+                "--hash=sha256:"
+            ), f"{name}.lock: {line.split()[0]} has no hash"
+
+
+def test_make_lock_generates_hashes():
+    makefile = (PROJECT_ROOT / "Makefile").read_text(encoding="utf-8")
+    assert "--generate-hashes" in makefile
+
+
 def test_installers_use_the_locks():
     makefile = (PROJECT_ROOT / "Makefile").read_text(encoding="utf-8")
     dockerfile = (PROJECT_ROOT / "Dockerfile").read_text(encoding="utf-8")

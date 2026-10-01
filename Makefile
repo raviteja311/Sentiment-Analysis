@@ -34,10 +34,13 @@ install-train:  ## Install everything needed to retrain
 # serves Linux, Windows and macOS: torch comes from the CPU index as +cpu
 # where that wheel exists and plain elsewhere. --index-strategy
 # unsafe-best-match is what lets a package be taken from the extra index when
-# its best version lives there.
+# its best version lives there. --generate-hashes records the sha256 of every
+# distribution, so pip installs from a lock in hash-checking mode and refuses
+# any file whose contents differ from what was locked.
 LOCK_FLAGS = --universal --python-version 3.11 \
 	--extra-index-url https://download.pytorch.org/whl/cpu \
-	--index-strategy unsafe-best-match --emit-index-url --no-annotate
+	--index-strategy unsafe-best-match --emit-index-url --no-annotate \
+	--generate-hashes
 
 lock:  ## Regenerate requirements/*.lock from requirements/*.txt (needs uv, in dev.txt)
 	$(PYTHON) -m uv pip compile requirements/inference-cpu.txt $(LOCK_FLAGS) \

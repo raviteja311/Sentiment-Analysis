@@ -55,6 +55,11 @@ LOGGER = logging.getLogger(__name__)
 DEFAULT_SPLIT = "test"
 DEFAULT_BATCH_SIZE = 64
 
+# The results table ranks every model on this one split, the one the README
+# quotes, and lists each model's splits in SPLIT_ORDER beneath that.
+RANKING_SPLIT = "test"
+SPLIT_ORDER = ("test", "validation")
+
 
 def baseline_key(base_model: str | None = None) -> str:
     """Record key for a base checkpoint scored zero-shot.
@@ -333,19 +338,24 @@ def example_count(report: dict, split: str):
 
 
 def _ranking_score(report: dict) -> tuple:
-    """Sort key placing the best model first.
+    """Sort key placing the best model on ``RANKING_SPLIT`` first.
 
-    Ranked on the evaluated split where there is one, so the table opens with
-    the model that actually scored highest rather than with whichever model's
-    key sorts first alphabetically.
+    Every record is ranked on the same split. Ranking each on whichever split
+    it was evaluated on last mixed validation scores with test scores, so a
+    model's place in the table depended on the order its evaluations ran in.
+    A record with no score on the ranking split sorts after every record that
+    has one, by key.
     """
-    metrics = report.get("metrics") or {}
-    evaluated = (report.get("evaluation") or {}).get("split")
-    if evaluated and evaluated in metrics:
-        best = metrics[evaluated].get("f1_macro", 0.0)
-    else:
-        best = max((m.get("f1_macro", 0.0) for m in metrics.values()), default=0.0)
-    return (-best, report.get("model", ""))
+    metrics = (report.get("metrics") or {}).get(RANKING_SPLIT)
+    if metrics is None:
+        return (1, 0.0, report.get("model", ""))
+    return (0, -metrics.get("f1_macro", 0.0), report.get("model", ""))
+
+
+def _ordered_splits(metrics: dict) -> list[str]:
+    """A record's splits in ``SPLIT_ORDER``, any others after them as recorded."""
+    known = [split for split in SPLIT_ORDER if split in metrics]
+    return known + [split for split in metrics if split not in SPLIT_ORDER]
 
 
 _ROW = "| {name} | {split} | {size} | {acc:.4f} | {f1:.4f} | {recall} | {per} |"
@@ -365,7 +375,8 @@ def markdown_table(reports: list[dict]) -> str:
     rows = [header, divider]
 
     for report in sorted(reports, key=_ranking_score):
-        for split, metrics in report["metrics"].items():
+        for split in _ordered_splits(report["metrics"]):
+            metrics = report["metrics"][split]
             per_class = metrics.get("f1_per_class", [])
             rows.append(
                 _ROW.format(

@@ -3,7 +3,7 @@
 import pytest
 
 from src import evaluate
-from src.config import LABELS
+from src.config import LABELS, PROJECT_ROOT
 from src.utils.io import load_json, save_json
 from src.utils.metrics import build_report, compute_metrics
 from tests.conftest import requires_model
@@ -197,6 +197,63 @@ def test_table_puts_the_best_model_first(sample_report):
     rows = evaluate.markdown_table([weaker, sample_report]).splitlines()
     assert "Logistic Regression" in rows[2]
     assert "Bi-GRU" in rows[3]
+
+
+_METRICS = {"accuracy": 0.5, "f1_per_class": [0.5, 0.5, 0.5]}
+
+
+def _record(model, name, evaluated, **splits):
+    """A record scored on ``splits``, its last evaluation on ``evaluated``."""
+    return {
+        "model": model,
+        "display_name": name,
+        "metrics": {split: {**_METRICS, "f1_macro": f1} for split, f1 in splits.items()},
+        "evaluation": {"split": evaluated},
+    }
+
+
+def _names_in_order(table):
+    names = []
+    for row in table.splitlines()[2:]:
+        name = row.split("|")[1].strip()
+        if name not in names:
+            names.append(name)
+    return names
+
+
+def test_table_ranks_every_model_on_test_whatever_was_evaluated_last():
+    # A was last evaluated on validation, where it is strongest, but B is
+    # better on test. Ranking on each record's last split put A first.
+    a = _record("a", "A", "validation", test=0.70, validation=0.90)
+    b = _record("b", "B", "test", validation=0.75, test=0.72)
+    assert _names_in_order(evaluate.markdown_table([a, b])) == ["B", "A"]
+
+
+def test_table_lists_test_before_validation_for_every_model():
+    a = _record("a", "A", "validation", validation=0.9, test=0.8)
+    b = _record("b", "B", "test", test=0.7, validation=0.6)
+    rows = evaluate.markdown_table([a, b]).splitlines()[2:]
+    assert [row.split("|")[2].strip() for row in rows] == [
+        "test",
+        "validation",
+        "test",
+        "validation",
+    ]
+
+
+def test_a_record_without_a_test_score_ranks_last():
+    validation_only = _record("a", "A", "validation", validation=0.99)
+    tested = _record("b", "B", "test", test=0.10)
+    table = evaluate.markdown_table([validation_only, tested])
+    assert _names_in_order(table) == ["B", "A"]
+
+
+@pytest.mark.parametrize("document", ["README.md", "MODEL_CARD.md"])
+def test_the_published_table_is_the_generated_one(document):
+    # The table is regenerated from reports/metrics/, never typed; a document
+    # that drifts from the records, or from the ranking, fails here.
+    text = (PROJECT_ROOT / document).read_text(encoding="utf-8")
+    assert evaluate.markdown_table(evaluate.load_reports()) in text
 
 
 def test_table_formats_scores_to_four_decimals(sample_report):
