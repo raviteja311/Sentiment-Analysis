@@ -304,7 +304,7 @@ def test_the_roberta_cli_builds_the_config_it_trains_with(monkeypatch, tmp_path)
 
     seen = {}
 
-    def fake_main(config, out_dir=None):
+    def fake_main(config, out_dir=None, **_):
         seen.update(base_model=config.base_model, out_dir=out_dir)
 
     monkeypatch.setattr(train_roberta, "main", fake_main)

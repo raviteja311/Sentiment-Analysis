@@ -293,6 +293,9 @@ class RobertaConfig:
     learning_rate: float = 2e-5
     weight_decay: float = 0.01
     early_stopping_patience: int = 1
+    # Share of training steps over which the learning rate ramps up from 0.
+    # The served run used none; the Phase 2 grid uses 6%.
+    warmup_ratio: float = 0.0
 
 
 LR_CONFIG = LRConfig()

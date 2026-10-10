@@ -208,7 +208,13 @@ def save_predictions(
     model over the whole split again. The probabilities are stored before
     calibration, with the temperature the served model applies on top.
     """
-    path = predictions_path(model, split)
+    write_predictions(
+        predictions_path(model, split), labels, raw_probabilities, temperature
+    )
+
+
+def write_predictions(path, labels, raw_probabilities, temperature: float = 1.0) -> None:
+    """The file format behind :func:`save_predictions`, at any path."""
     path.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
         path,
@@ -218,14 +224,19 @@ def save_predictions(
     )
 
 
-def load_raw_predictions(model: str, split: str) -> tuple[np.ndarray, np.ndarray, float]:
-    """``(labels, raw probabilities, served temperature)``."""
-    with np.load(predictions_path(model, split)) as saved:
+def read_predictions(path) -> tuple[np.ndarray, np.ndarray, float]:
+    """``(labels, raw probabilities, temperature)`` from any predictions file."""
+    with np.load(path) as saved:
         return (
             saved["labels"].astype(int),
             saved["raw_probabilities"],
             float(saved["temperature"]),
         )
+
+
+def load_raw_predictions(model: str, split: str) -> tuple[np.ndarray, np.ndarray, float]:
+    """``(labels, raw probabilities, served temperature)``."""
+    return read_predictions(predictions_path(model, split))
 
 
 def load_predictions(model: str, split: str) -> tuple[np.ndarray, np.ndarray]:
