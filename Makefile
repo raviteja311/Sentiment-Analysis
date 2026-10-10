@@ -4,7 +4,7 @@ PORT ?= 8000
 
 .PHONY: help install install-dev install-train lock api ui test lint format \
         fetch-weights publish-weights \
-        train-lr train-lstm train-gru train-roberta evaluate significance calibrate behaviour \
+        train-lr train-lstm train-gru train-roberta evaluate significance calibrate reliability behaviour \
         experiments \
         docker-build docker-run clean
 
@@ -105,6 +105,9 @@ significance:  ## Bootstrap intervals and McNemar tests from saved predictions
 
 calibrate:  ## Fit temperature scaling so confidence scores mean something
 	$(PYTHON) -m src.calibration
+
+reliability:  ## Temperature and reliability diagram for every model, bases too
+	$(PYTHON) -m src.reliability
 
 behaviour:  ## Run the behavioural checks (a report, not a gate)
 	$(PYTHON) -m src.behaviour

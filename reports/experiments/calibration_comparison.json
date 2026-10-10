@@ -1,0 +1,714 @@
+{
+  "fitted_on": "validation",
+  "measured_on": "test",
+  "models": [
+    {
+      "model": "lr",
+      "served_temperature": 1.0,
+      "fitted_temperature": 1.00000447893523,
+      "held_out_ece_gain": -4.966855049089169e-07,
+      "test": {
+        "accuracy": 0.5848257896450667,
+        "mean_confidence_before": 0.6131373643875122,
+        "mean_confidence_after": 0.6131364107131958,
+        "ece_before": 0.044248896365598936,
+        "ece_after": 0.04424835543549441
+      },
+      "bins_before": [
+        {
+          "confidence": 0.37811318039894104,
+          "accuracy": 0.4028520499108734,
+          "count": 561
+        },
+        {
+          "confidence": 0.43701663613319397,
+          "accuracy": 0.43797766019988243,
+          "count": 1701
+        },
+        {
+          "confidence": 0.4998411238193512,
+          "accuracy": 0.5348343245539507,
+          "count": 2354
+        },
+        {
+          "confidence": 0.5648704171180725,
+          "accuracy": 0.5577227200843436,
+          "count": 1897
+        },
+        {
+          "confidence": 0.6323785781860352,
+          "accuracy": 0.6068222621184919,
+          "count": 1671
+        },
+        {
+          "confidence": 0.6988117694854736,
+          "accuracy": 0.6258823529411764,
+          "count": 1275
+        },
+        {
+          "confidence": 0.7649645209312439,
+          "accuracy": 0.6592517694641051,
+          "count": 989
+        },
+        {
+          "confidence": 0.8319947719573975,
+          "accuracy": 0.7315521628498728,
+          "count": 786
+        },
+        {
+          "confidence": 0.8975658416748047,
+          "accuracy": 0.7635782747603834,
+          "count": 626
+        },
+        {
+          "confidence": 0.9623665809631348,
+          "accuracy": 0.8938679245283019,
+          "count": 424
+        }
+      ],
+      "bins_after": [
+        {
+          "confidence": 0.3781129717826843,
+          "accuracy": 0.4028520499108734,
+          "count": 561
+        },
+        {
+          "confidence": 0.43701624870300293,
+          "accuracy": 0.43797766019988243,
+          "count": 1701
+        },
+        {
+          "confidence": 0.49984049797058105,
+          "accuracy": 0.5348343245539507,
+          "count": 2354
+        },
+        {
+          "confidence": 0.5648695230484009,
+          "accuracy": 0.5577227200843436,
+          "count": 1897
+        },
+        {
+          "confidence": 0.6323773860931396,
+          "accuracy": 0.6068222621184919,
+          "count": 1671
+        },
+        {
+          "confidence": 0.6988103985786438,
+          "accuracy": 0.6258823529411764,
+          "count": 1275
+        },
+        {
+          "confidence": 0.7649631500244141,
+          "accuracy": 0.6592517694641051,
+          "count": 989
+        },
+        {
+          "confidence": 0.8319933414459229,
+          "accuracy": 0.7315521628498728,
+          "count": 786
+        },
+        {
+          "confidence": 0.897621750831604,
+          "accuracy": 0.7639553429027113,
+          "count": 627
+        },
+        {
+          "confidence": 0.9624345898628235,
+          "accuracy": 0.8936170212765957,
+          "count": 423
+        }
+      ],
+      "display_name": "Logistic Regression"
+    },
+    {
+      "model": "lstm",
+      "served_temperature": 1.0,
+      "fitted_temperature": 1.1131214465333823,
+      "held_out_ece_gain": -0.00026140837371350055,
+      "test": {
+        "accuracy": 0.6435200260501466,
+        "mean_confidence_before": 0.6716137528419495,
+        "mean_confidence_after": 0.6498247385025024,
+        "ece_before": 0.03120208070172193,
+        "ece_after": 0.018764886081956266
+      },
+      "bins_before": [
+        {
+          "confidence": 0.37928900122642517,
+          "accuracy": 0.34579439252336447,
+          "count": 107
+        },
+        {
+          "confidence": 0.44034552574157715,
+          "accuracy": 0.4512893982808023,
+          "count": 698
+        },
+        {
+          "confidence": 0.5022895932197571,
+          "accuracy": 0.5080563947633434,
+          "count": 1986
+        },
+        {
+          "confidence": 0.5663814544677734,
+          "accuracy": 0.5621052631578948,
+          "count": 1900
+        },
+        {
+          "confidence": 0.6333792805671692,
+          "accuracy": 0.6115317414094351,
+          "count": 1717
+        },
+        {
+          "confidence": 0.6993146538734436,
+          "accuracy": 0.6558441558441559,
+          "count": 1540
+        },
+        {
+          "confidence": 0.7669073343276978,
+          "accuracy": 0.7221418234442837,
+          "count": 1382
+        },
+        {
+          "confidence": 0.8320546746253967,
+          "accuracy": 0.7740940632228219,
+          "count": 1297
+        },
+        {
+          "confidence": 0.8982839584350586,
+          "accuracy": 0.8222013170272813,
+          "count": 1063
+        },
+        {
+          "confidence": 0.9597853422164917,
+          "accuracy": 0.9090909090909091,
+          "count": 594
+        }
+      ],
+      "bins_after": [
+        {
+          "confidence": 0.380555659532547,
+          "accuracy": 0.3793103448275862,
+          "count": 145
+        },
+        {
+          "confidence": 0.44054552912712097,
+          "accuracy": 0.4604395604395604,
+          "count": 910
+        },
+        {
+          "confidence": 0.5012658834457397,
+          "accuracy": 0.5253022839229736,
+          "count": 2233
+        },
+        {
+          "confidence": 0.566104531288147,
+          "accuracy": 0.5684897139989965,
+          "count": 1993
+        },
+        {
+          "confidence": 0.6328607797622681,
+          "accuracy": 0.6273532668881506,
+          "count": 1806
+        },
+        {
+          "confidence": 0.6990036964416504,
+          "accuracy": 0.6846725185685347,
+          "count": 1481
+        },
+        {
+          "confidence": 0.7662997841835022,
+          "accuracy": 0.7469793887704336,
+          "count": 1407
+        },
+        {
+          "confidence": 0.8324568867683411,
+          "accuracy": 0.8012533572068039,
+          "count": 1117
+        },
+        {
+          "confidence": 0.8976336121559143,
+          "accuracy": 0.8339483394833949,
+          "count": 813
+        },
+        {
+          "confidence": 0.9572861790657043,
+          "accuracy": 0.9340369393139841,
+          "count": 379
+        }
+      ],
+      "display_name": "Bi-LSTM"
+    },
+    {
+      "model": "gru",
+      "served_temperature": 1.1207500588789565,
+      "fitted_temperature": 1.1207500588789565,
+      "held_out_ece_gain": 0.002556523263454444,
+      "test": {
+        "accuracy": 0.6387170302832953,
+        "mean_confidence_before": 0.6560865640640259,
+        "mean_confidence_after": 0.6344284415245056,
+        "ece_before": 0.031920300241655576,
+        "ece_after": 0.023808465349251105
+      },
+      "bins_before": [
+        {
+          "confidence": 0.37926366925239563,
+          "accuracy": 0.35428571428571426,
+          "count": 175
+        },
+        {
+          "confidence": 0.43926802277565,
+          "accuracy": 0.4588688946015424,
+          "count": 778
+        },
+        {
+          "confidence": 0.502986490726471,
+          "accuracy": 0.5218808193668529,
+          "count": 2148
+        },
+        {
+          "confidence": 0.5656986236572266,
+          "accuracy": 0.5813844714686623,
+          "count": 2138
+        },
+        {
+          "confidence": 0.6320692896842957,
+          "accuracy": 0.6128491620111732,
+          "count": 1790
+        },
+        {
+          "confidence": 0.6996607184410095,
+          "accuracy": 0.663481228668942,
+          "count": 1465
+        },
+        {
+          "confidence": 0.7650526762008667,
+          "accuracy": 0.7356507679870655,
+          "count": 1237
+        },
+        {
+          "confidence": 0.8316613435745239,
+          "accuracy": 0.7527573529411765,
+          "count": 1088
+        },
+        {
+          "confidence": 0.8988862633705139,
+          "accuracy": 0.8266818700114025,
+          "count": 877
+        },
+        {
+          "confidence": 0.9615970253944397,
+          "accuracy": 0.9183673469387755,
+          "count": 588
+        }
+      ],
+      "bins_after": [
+        {
+          "confidence": 0.3791155219078064,
+          "accuracy": 0.35267857142857145,
+          "count": 224
+        },
+        {
+          "confidence": 0.43922489881515503,
+          "accuracy": 0.47147147147147145,
+          "count": 999
+        },
+        {
+          "confidence": 0.5020650029182434,
+          "accuracy": 0.5401639344262295,
+          "count": 2440
+        },
+        {
+          "confidence": 0.5656905174255371,
+          "accuracy": 0.5825932504440497,
+          "count": 2252
+        },
+        {
+          "confidence": 0.6315772533416748,
+          "accuracy": 0.6303854875283447,
+          "count": 1764
+        },
+        {
+          "confidence": 0.6994995474815369,
+          "accuracy": 0.7058823529411765,
+          "count": 1462
+        },
+        {
+          "confidence": 0.7664972543716431,
+          "accuracy": 0.7314734088927637,
+          "count": 1147
+        },
+        {
+          "confidence": 0.8324153423309326,
+          "accuracy": 0.8025751072961373,
+          "count": 932
+        },
+        {
+          "confidence": 0.898827075958252,
+          "accuracy": 0.8434782608695652,
+          "count": 690
+        },
+        {
+          "confidence": 0.9590710401535034,
+          "accuracy": 0.9438502673796791,
+          "count": 374
+        }
+      ],
+      "display_name": "Bi-GRU"
+    },
+    {
+      "model": "roberta",
+      "served_temperature": 1.9874954922997166,
+      "fitted_temperature": 1.9874954922997166,
+      "held_out_ece_gain": 0.09048117798566817,
+      "test": {
+        "accuracy": 0.7109247802018887,
+        "mean_confidence_before": 0.9148188233375549,
+        "mean_confidence_after": 0.7963934540748596,
+        "ece_before": 0.20389405356065649,
+        "ece_after": 0.08649810485587917
+      },
+      "bins_before": [
+        {
+          "confidence": 0.3876506984233856,
+          "accuracy": 0.3333333333333333,
+          "count": 3
+        },
+        {
+          "confidence": 0.44914060831069946,
+          "accuracy": 0.1111111111111111,
+          "count": 9
+        },
+        {
+          "confidence": 0.51377934217453,
+          "accuracy": 0.47115384615384615,
+          "count": 208
+        },
+        {
+          "confidence": 0.5667250156402588,
+          "accuracy": 0.5238095238095238,
+          "count": 357
+        },
+        {
+          "confidence": 0.632729709148407,
+          "accuracy": 0.5193798449612403,
+          "count": 387
+        },
+        {
+          "confidence": 0.7012064456939697,
+          "accuracy": 0.49673202614379086,
+          "count": 459
+        },
+        {
+          "confidence": 0.7666755318641663,
+          "accuracy": 0.5544554455445545,
+          "count": 505
+        },
+        {
+          "confidence": 0.8358137607574463,
+          "accuracy": 0.5466847090663058,
+          "count": 739
+        },
+        {
+          "confidence": 0.904905378818512,
+          "accuracy": 0.6055776892430279,
+          "count": 1255
+        },
+        {
+          "confidence": 0.9825434684753418,
+          "accuracy": 0.7860559674718967,
+          "count": 8362
+        }
+      ],
+      "bins_after": [
+        {
+          "confidence": 0.38395941257476807,
+          "accuracy": 0.18181818181818182,
+          "count": 11
+        },
+        {
+          "confidence": 0.4434605538845062,
+          "accuracy": 0.42857142857142855,
+          "count": 63
+        },
+        {
+          "confidence": 0.5043004751205444,
+          "accuracy": 0.5104333868378812,
+          "count": 623
+        },
+        {
+          "confidence": 0.566506028175354,
+          "accuracy": 0.5025380710659898,
+          "count": 788
+        },
+        {
+          "confidence": 0.634498119354248,
+          "accuracy": 0.5577596266044341,
+          "count": 857
+        },
+        {
+          "confidence": 0.7013171911239624,
+          "accuracy": 0.5854368932038835,
+          "count": 1030
+        },
+        {
+          "confidence": 0.7689722776412964,
+          "accuracy": 0.623826714801444,
+          "count": 1385
+        },
+        {
+          "confidence": 0.83708655834198,
+          "accuracy": 0.7050108932461874,
+          "count": 2295
+        },
+        {
+          "confidence": 0.8987336158752441,
+          "accuracy": 0.8292304280328232,
+          "count": 4509
+        },
+        {
+          "confidence": 0.948130190372467,
+          "accuracy": 0.9515905947441217,
+          "count": 723
+        }
+      ],
+      "display_name": "Twitter-RoBERTa"
+    },
+    {
+      "model": "roberta_base",
+      "served_temperature": 1.0,
+      "fitted_temperature": 1.00000447893523,
+      "held_out_ece_gain": -7.230639457664334e-07,
+      "test": {
+        "accuracy": 0.7246011071312276,
+        "mean_confidence_before": 0.7303625345230103,
+        "mean_confidence_after": 0.7303615808486938,
+        "ece_before": 0.02205607377038799,
+        "ece_after": 0.02205592430024146
+      },
+      "bins_before": [
+        {
+          "confidence": 0.38329270482063293,
+          "accuracy": 0.5238095238095238,
+          "count": 21
+        },
+        {
+          "confidence": 0.44403573870658875,
+          "accuracy": 0.43783783783783786,
+          "count": 185
+        },
+        {
+          "confidence": 0.5054873824119568,
+          "accuracy": 0.5349887133182845,
+          "count": 1329
+        },
+        {
+          "confidence": 0.5665395259857178,
+          "accuracy": 0.5821271239773442,
+          "count": 1589
+        },
+        {
+          "confidence": 0.6321927309036255,
+          "accuracy": 0.6377091377091377,
+          "count": 1554
+        },
+        {
+          "confidence": 0.7004812359809875,
+          "accuracy": 0.7169684775318578,
+          "count": 1491
+        },
+        {
+          "confidence": 0.7666966915130615,
+          "accuracy": 0.7472067039106145,
+          "count": 1432
+        },
+        {
+          "confidence": 0.8345823287963867,
+          "accuracy": 0.7966305655836342,
+          "count": 1662
+        },
+        {
+          "confidence": 0.9011240005493164,
+          "accuracy": 0.8675496688741722,
+          "count": 1812
+        },
+        {
+          "confidence": 0.9635121822357178,
+          "accuracy": 0.9487179487179487,
+          "count": 1209
+        }
+      ],
+      "bins_after": [
+        {
+          "confidence": 0.3832925260066986,
+          "accuracy": 0.5238095238095238,
+          "count": 21
+        },
+        {
+          "confidence": 0.4440353512763977,
+          "accuracy": 0.43783783783783786,
+          "count": 185
+        },
+        {
+          "confidence": 0.5054870247840881,
+          "accuracy": 0.5349887133182845,
+          "count": 1329
+        },
+        {
+          "confidence": 0.5665388703346252,
+          "accuracy": 0.5821271239773442,
+          "count": 1589
+        },
+        {
+          "confidence": 0.6321918368339539,
+          "accuracy": 0.6377091377091377,
+          "count": 1554
+        },
+        {
+          "confidence": 0.700480043888092,
+          "accuracy": 0.7169684775318578,
+          "count": 1491
+        },
+        {
+          "confidence": 0.766695499420166,
+          "accuracy": 0.7472067039106145,
+          "count": 1432
+        },
+        {
+          "confidence": 0.8345810770988464,
+          "accuracy": 0.7966305655836342,
+          "count": 1662
+        },
+        {
+          "confidence": 0.9011229276657104,
+          "accuracy": 0.8675496688741722,
+          "count": 1812
+        },
+        {
+          "confidence": 0.96351158618927,
+          "accuracy": 0.9487179487179487,
+          "count": 1209
+        }
+      ],
+      "display_name": "Twitter-RoBERTa (base, not fine-tuned)"
+    },
+    {
+      "model": "roberta_base__twitter_roberta_base_sentiment_latest",
+      "served_temperature": 1.0,
+      "fitted_temperature": 1.0166790195822688,
+      "held_out_ece_gain": -0.0005838764160871592,
+      "test": {
+        "accuracy": 0.7233800065125366,
+        "mean_confidence_before": 0.7606703042984009,
+        "mean_confidence_after": 0.7573168873786926,
+        "ece_before": 0.04150588339293521,
+        "ece_after": 0.03894679184283698
+      },
+      "bins_before": [
+        {
+          "confidence": 0.378135085105896,
+          "accuracy": 0.5517241379310345,
+          "count": 29
+        },
+        {
+          "confidence": 0.4398684501647949,
+          "accuracy": 0.4304635761589404,
+          "count": 151
+        },
+        {
+          "confidence": 0.5073122382164001,
+          "accuracy": 0.5193798449612403,
+          "count": 903
+        },
+        {
+          "confidence": 0.5665625333786011,
+          "accuracy": 0.5746938775510204,
+          "count": 1225
+        },
+        {
+          "confidence": 0.633312463760376,
+          "accuracy": 0.5764430577223089,
+          "count": 1282
+        },
+        {
+          "confidence": 0.6995400786399841,
+          "accuracy": 0.640481245576787,
+          "count": 1413
+        },
+        {
+          "confidence": 0.7673368453979492,
+          "accuracy": 0.6887589343729694,
+          "count": 1539
+        },
+        {
+          "confidence": 0.8346681594848633,
+          "accuracy": 0.7744838538909475,
+          "count": 1889
+        },
+        {
+          "confidence": 0.9004989862442017,
+          "accuracy": 0.8742164646886753,
+          "count": 2393
+        },
+        {
+          "confidence": 0.9600518941879272,
+          "accuracy": 0.9404109589041096,
+          "count": 1460
+        }
+      ],
+      "bins_after": [
+        {
+          "confidence": 0.3781398832798004,
+          "accuracy": 0.5666666666666667,
+          "count": 30
+        },
+        {
+          "confidence": 0.44029873609542847,
+          "accuracy": 0.425,
+          "count": 160
+        },
+        {
+          "confidence": 0.5074357390403748,
+          "accuracy": 0.5177228786251342,
+          "count": 931
+        },
+        {
+          "confidence": 0.566984236240387,
+          "accuracy": 0.579454253611557,
+          "count": 1246
+        },
+        {
+          "confidence": 0.6337417960166931,
+          "accuracy": 0.5816091954022988,
+          "count": 1305
+        },
+        {
+          "confidence": 0.699590265750885,
+          "accuracy": 0.64109781843772,
+          "count": 1421
+        },
+        {
+          "confidence": 0.7673594355583191,
+          "accuracy": 0.6964856230031949,
+          "count": 1565
+        },
+        {
+          "confidence": 0.834769606590271,
+          "accuracy": 0.7784743991640544,
+          "count": 1914
+        },
+        {
+          "confidence": 0.9003572463989258,
+          "accuracy": 0.8780075981426763,
+          "count": 2369
+        },
+        {
+          "confidence": 0.9601192474365234,
+          "accuracy": 0.9434102755026061,
+          "count": 1343
+        }
+      ],
+      "display_name": "cardiffnlp/twitter-roberta-base-sentiment-latest (base, not fine-tuned)"
+    }
+  ]
+}

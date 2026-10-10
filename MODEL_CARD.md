@@ -291,7 +291,11 @@ ECE near 0.09 on the transformer is still not nothing: read a 0.95 as "usually
 right", not as 95 correct calls in 100. The linear baseline and the retrained
 Bi-LSTM are deliberately left uncalibrated - see the README - because the
 candidate temperature for each gains nothing on validation folds it was not
-fitted to; the Bi-LSTM's raw ECE of 0.031 is already the lowest of the three.
+fitted to; the Bi-LSTM's raw ECE of 0.031 is already the lowest of the three. The transformer's overconfidence is
+our fine-tune's doing: the base checkpoint, measured the same way, fits a
+temperature of 1.00 and has a raw test ECE of 0.022, against 0.204 for the
+fine-tune before scaling and 0.087 after. See the README's comparison table and
+`reports/figures/`.
 
 **Each model is served with the preprocessing it was trained with.** The
 linear and recurrent models were retrained on 2026-09-25 with `glove-v2` and,

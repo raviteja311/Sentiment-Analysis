@@ -288,9 +288,12 @@ Besides the prediction and its probabilities, the app shows the selected
 model's test-split confusion matrix, read from its record in
 `reports/metrics/`, and for the Logistic Regression model the terms that
 pushed the text towards or away from its label: each term's tf-idf value
-times its coefficient for the predicted class. The neural models get no such
-explanation, because their decisions are not sums of per-term weights and a
-made-up one would be worse than none.
+times its coefficient for the predicted class. For the transformer it shows
+Integrated Gradients (`src/inference/attributions.py`): how much each word
+moved the score of the predicted class, with the completeness gap that says
+whether the attribution converged. The recurrent models get no explanation
+rather than an unchecked one. A picker offers ten hand-written hard cases:
+negation, sarcasm, emoji, mixed and mild sentiment.
 
 ### Docker
 
@@ -339,6 +342,41 @@ is underconfident on validation and overconfident on test (61.3% confidence,
 would overstate confidence. For the retrained Bi-LSTM the candidate (1.11)
 gained nothing held out, and its raw ECE of 0.031 is already the best of the
 non-transformer models, so it too is served at 1.0.
+
+### Did fine-tuning cause the overconfidence?
+
+`make reliability` fits the same temperature on validation for every model,
+the untouched base checkpoints included, and measures it on test. Fitted T is
+that fit; served T is what the deployed model applies.
+
+| Model | Fitted T | Served T | Accuracy | Mean confidence | ECE before | ECE after |
+|---|---|---|---|---|---|---|
+| Twitter-RoBERTa (base, not fine-tuned) | 1.00 | 1.00 | 0.7246 | 0.730 | 0.0221 | 0.0221 |
+| cardiffnlp/twitter-roberta-base-sentiment-latest (base, not fine-tuned) | 1.02 | 1.00 | 0.7234 | 0.761 | 0.0415 | 0.0389 |
+| Twitter-RoBERTa | 1.99 | 1.99 | 0.7109 | 0.915 | 0.2039 | 0.0865 |
+| Bi-LSTM | 1.11 | 1.00 | 0.6435 | 0.672 | 0.0312 | 0.0188 |
+| Bi-GRU | 1.12 | 1.12 | 0.6387 | 0.656 | 0.0319 | 0.0238 |
+| Logistic Regression | 1.00 | 1.00 | 0.5848 | 0.613 | 0.0442 | 0.0442 |
+
+**Yes.** The checkpoint we fine-tuned from is already calibrated: its
+temperature fits at exactly 1.00 and its raw test ECE is 0.022, the lowest of
+any model here. Our fine-tune raised mean confidence from 0.730 to 0.915 while
+lowering accuracy, which is what the temperature of 1.99 is undoing. Even after
+scaling, its ECE (0.087) is four times the base's without any. The 58% cut in
+calibration error is real, but it repairs damage the fine-tune did. Two causes
+are plausible and not yet separated: a second round of training on data the
+checkpoint had already been fitted to, which can push logits apart without
+making them more often right, and the `glove-v1` preprocessing, which feeds the
+checkpoint text unlike what it was trained on. Retraining with `cardiff-v1`
+from the same checkpoint, and from one never trained on sentiment, would tell
+them apart.
+
+Reliability diagrams, one per model, are in `reports/figures/`; points below
+the diagonal are overconfident.
+
+| Fine-tuned (served) | Base, not fine-tuned |
+|---|---|
+| ![Reliability diagram for the fine-tuned transformer](reports/figures/reliability_roberta.svg) | ![Reliability diagram for the base checkpoint](reports/figures/reliability_roberta_base.svg) |
 
 ## Retraining
 
