@@ -71,3 +71,14 @@ def test_diagram_omits_the_calibrated_series_when_nothing_was_softened():
     ET.fromstring(svg)  # the name was escaped
     assert "After temperature scaling" not in svg
     assert "no softening" in svg
+
+
+def test_the_published_comparison_table_is_the_generated_one():
+    from src.config import PROJECT_ROOT
+    from src.utils.io import load_json
+
+    if not reliability.COMPARISON_PATH.exists():
+        pytest.skip("src.reliability has not been run")
+    records = load_json(reliability.COMPARISON_PATH)["models"]
+    text = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+    assert reliability.markdown_table(records) in text

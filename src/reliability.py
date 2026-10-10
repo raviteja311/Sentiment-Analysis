@@ -135,16 +135,24 @@ def run() -> list[dict]:
 
 
 def markdown_table(records: list[dict]) -> str:
-    """Temperatures and test calibration, most accurate first."""
+    """Temperatures and test calibration, most accurate first.
+
+    Fitted T is this module's fit on validation; served T is what the deployed
+    model applies, which src.calibration only adopts when it also helps on
+    validation folds it was not fitted to. Base checkpoints are never served,
+    so theirs is 1.
+    """
     rows = [
-        "| Model | Fitted T | Accuracy | Mean confidence | ECE before | ECE after |",
-        "|---|---|---|---|---|---|",
+        "| Model | Fitted T | Served T | Accuracy | Mean confidence "
+        "| ECE before | ECE after |",
+        "|---|---|---|---|---|---|---|",
     ]
     for record in sorted(records, key=lambda r: -r["test"]["accuracy"]):
         test = record["test"]
         rows.append(
             f"| {record['display_name']} | {record['fitted_temperature']:.2f} "
-            f"| {test['accuracy']:.4f} | {test['mean_confidence_before']:.3f} "
+            f"| {record['served_temperature']:.2f} | {test['accuracy']:.4f} "
+            f"| {test['mean_confidence_before']:.3f} "
             f"| {test['ece_before']:.4f} | {test['ece_after']:.4f} |"
         )
     return "\n".join(rows)
@@ -157,7 +165,7 @@ def markdown_table(records: list[dict]) -> str:
 # palette's first two categorical slots, validated as an adjacent pair in both
 # light and dark modes; text uses ink tokens, never a series colour.
 
-_WIDTH, _HEIGHT = 440, 400
+_WIDTH, _HEIGHT = 480, 400
 _LEFT, _RIGHT, _TOP, _BOTTOM = 56, 24, 76, 52
 _X_MIN = 0.3  # three classes: confidence can never fall below 1/3
 
@@ -234,27 +242,29 @@ def reliability_svg(record: dict) -> str:
             f'text-anchor="middle">{tick:.1f}</text>'
         )
 
+    # One row, left to right from the title's edge; x positions leave room for
+    # the longest label in each slot.
     legend_y = _TOP - 18
     legend = [
-        f'<circle class="dot s1" cx="{_LEFT + 6}" cy="{legend_y - 4}" r="4.5"/>'
-        f'<text class="ink-2" x="{_LEFT + 16}" y="{legend_y}">Raw model output</text>'
+        f'<circle class="dot s1" cx="22" cy="{legend_y - 4}" r="4.5"/>'
+        f'<text class="ink-2" x="32" y="{legend_y}">Raw model output</text>'
     ]
     series = [_series(record["bins_before"], "s1", "Raw")]
     if adopted:
         legend.append(
-            f'<circle class="dot s2" cx="{_LEFT + 156}" cy="{legend_y - 4}" r="4.5"/>'
-            f'<text class="ink-2" x="{_LEFT + 166}" y="{legend_y}">'
+            f'<circle class="dot s2" cx="162" cy="{legend_y - 4}" r="4.5"/>'
+            f'<text class="ink-2" x="172" y="{legend_y}">'
             "After temperature scaling</text>"
         )
         series.append(_series(record["bins_after"], "s2", "Calibrated"))
     legend.append(
-        f'<line class="ideal" x1="{_WIDTH - _RIGHT - 118}" x2="{_WIDTH - _RIGHT - 96}" '
+        f'<line class="ideal" x1="356" x2="380" '
         f'y1="{legend_y - 4}" y2="{legend_y - 4}"/>'
-        f'<text class="ink-2" x="{_WIDTH - _RIGHT - 90}" y="{legend_y}">Perfect</text>'
+        f'<text class="ink-2" x="386" y="{legend_y}">Perfect</text>'
     )
 
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {_WIDTH} {_HEIGHT}" \
-width="{_WIDTH}" height="{_HEIGHT}" role="img" aria-labelledby="t d">
+width="100%" style="max-width: {_WIDTH}px; height: auto" role="img" aria-labelledby="t d">
 <title id="t">Reliability diagram: {title}</title>
 <desc id="d">{escape(subtitle)}. Points below the dashed diagonal are \
 overconfident.</desc>
