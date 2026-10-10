@@ -50,7 +50,9 @@ DEFAULT_PAIRS = (
 METRICS = ("f1_macro", "recall_macro")
 
 
-def confusion_matrices(labels: np.ndarray, predictions: np.ndarray, samples) -> np.ndarray:
+def confusion_matrices(
+    labels: np.ndarray, predictions: np.ndarray, samples
+) -> np.ndarray:
     """One confusion matrix per row of ``samples`` (indices into the data).
 
     Shape ``(len(samples), k, k)``, true class by predicted class. Counting
@@ -239,7 +241,9 @@ def interval_table(reports: list[dict], split: str = SPLIT) -> str:
 
 def comparison_table(result: dict) -> str:
     """Each pair's differences (A minus B) and McNemar p-value."""
-    names = {r["model"]: r.get("display_name", r["model"]) for r in evaluate.load_reports()}
+    names = {
+        r["model"]: r.get("display_name", r["model"]) for r in evaluate.load_reports()
+    }
     rows = [
         "| A | B | Macro F1, A - B (95% CI) | Macro recall, A - B (95% CI) "
         "| Only A right | Only B right | McNemar p |",

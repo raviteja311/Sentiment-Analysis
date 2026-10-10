@@ -113,7 +113,9 @@ def test_compare_reports_a_minus_b(scratch):
     _save_model("lstm", labels, better)
     _save_model("gru", labels, worse)
 
-    result = significance.compare("lstm", "gru", samples=significance.resample_indices(400, 200))
+    result = significance.compare(
+        "lstm", "gru", samples=significance.resample_indices(400, 200)
+    )
 
     expected = f1_score(labels, better, average="macro") - f1_score(
         labels, worse, average="macro"
@@ -156,4 +158,6 @@ def test_the_published_uncertainty_tables_are_the_generated_ones(document):
 
     text = (PROJECT_ROOT / document).read_text(encoding="utf-8")
     assert significance.interval_table(evaluate.load_reports()) in text
-    assert significance.comparison_table(load_json(significance.SIGNIFICANCE_PATH)) in text
+    assert (
+        significance.comparison_table(load_json(significance.SIGNIFICANCE_PATH)) in text
+    )
