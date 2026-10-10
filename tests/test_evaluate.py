@@ -44,13 +44,33 @@ def test_table_has_a_macro_recall_column(sample_report):
     )
 
 
-def test_table_shows_n_a_for_records_without_macro_recall(sample_report):
-    # Every committed record predates the metric; the table must still render.
-    old = dict(sample_report)
-    old["metrics"] = {"test": dict(sample_report["metrics"]["test"])}
+def _without_recall_macro(report, *, keep_classification_report=True):
+    old = dict(report)
+    old["metrics"] = {"test": dict(report["metrics"]["test"])}
     del old["metrics"]["test"]["recall_macro"]
-    table = evaluate.markdown_table([old])
-    assert "n/a" in table.splitlines()[2]
+    if not keep_classification_report:
+        del old["metrics"]["test"]["classification_report"]
+    return old
+
+
+def test_macro_recall_is_recovered_from_the_classification_report(sample_report):
+    # Records written before recall_macro existed still carry sklearn's report.
+    expected = sample_report["metrics"]["test"]["recall_macro"]
+    old = _without_recall_macro(sample_report)
+    assert evaluate.macro_recall(old["metrics"]["test"]) == pytest.approx(expected)
+    assert f"{expected:.4f}" in evaluate.markdown_table([old]).splitlines()[2]
+
+
+def test_table_shows_n_a_only_when_recall_cannot_be_recovered(sample_report):
+    old = _without_recall_macro(sample_report, keep_classification_report=False)
+    assert "n/a" in evaluate.markdown_table([old]).splitlines()[2]
+
+
+def test_no_committed_record_shows_n_a():
+    # TweetEval's official metric must be in every row the README quotes.
+    reports = evaluate.load_reports()
+    assert reports
+    assert "n/a" not in evaluate.markdown_table(reports)
 
 
 def test_metrics_include_per_class_and_confusion_matrix():

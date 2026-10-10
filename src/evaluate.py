@@ -385,19 +385,29 @@ def markdown_table(reports: list[dict]) -> str:
                     size=example_count(report, split),
                     acc=metrics["accuracy"],
                     f1=metrics["f1_macro"],
-                    recall=_optional_score(metrics.get("recall_macro")),
+                    recall=_optional_score(macro_recall(metrics)),
                     per=" | ".join(f"{value:.4f}" for value in per_class),
                 )
             )
     return "\n".join(rows)
 
 
-def _optional_score(value) -> str:
-    """A score, or ``n/a`` for records written before the metric existed.
+def macro_recall(metrics: dict) -> float | None:
+    """Macro recall from a split's scores, or None if it cannot be recovered.
 
-    Macro recall was added after the committed records were produced, so the
-    table must render them until ``make evaluate`` is rerun, not crash.
+    ``recall_macro`` was added to records after some were written, but every
+    record keeps sklearn's classification report, whose "macro avg" recall is
+    the same number. Reading it from there fills the column without rerunning
+    an evaluation that takes the transformer most of an hour on CPU.
     """
+    if metrics.get("recall_macro") is not None:
+        return metrics["recall_macro"]
+    report = metrics.get("classification_report") or {}
+    return (report.get("macro avg") or {}).get("recall")
+
+
+def _optional_score(value) -> str:
+    """A score, or ``n/a`` for a record that holds no way to recover it."""
     return "n/a" if value is None else f"{value:.4f}"
 
 
