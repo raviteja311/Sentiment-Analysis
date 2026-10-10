@@ -94,3 +94,26 @@ def test_the_linear_model_shows_the_terms_behind_its_label():
     term_tables = [f.value for f in app.dataframe if "contribution" in f.value.columns]
     assert len(term_tables) == 1
     assert "awful" in list(term_tables[0]["term"])
+
+
+# --- examples and the transformer's explanation -----------------------------
+
+
+def test_picking_an_example_fills_the_text_box():
+    app = run_app()
+    app.selectbox(key="example").set_value("Sarcasm").run()
+
+    assert not app.exception
+    assert "flight is delayed" in app.text_area(key="text").value
+
+
+@pytest.mark.skipif("roberta" not in available_models(), reason="RoBERTa unavailable")
+def test_the_transformer_explains_its_label_with_word_attributions():
+    app = run_app()
+    app.sidebar.selectbox[0].set_value("roberta").run()
+    app.text_area(key="text").set_value("I hate this phone, it is awful").run()
+    app.button[0].click().run()
+
+    assert not app.exception
+    assert any(sub.value == "Why negative" for sub in app.subheader)
+    assert any("Completeness check" in caption.value for caption in app.caption)

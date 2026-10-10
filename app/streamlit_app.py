@@ -29,12 +29,28 @@ from src.config import LABELS, METRICS_DIR
 from src.inference.predictor import (
     LRPredictor,
     ModelUnavailableError,
+    RobertaPredictor,
     load_predictor,
     model_status,
 )
 from src.utils.io import load_json
 
 TOP_TERMS = 10
+
+# Written for this demo, not taken from the dataset: each probes a known hard
+# case - negation, sarcasm, emoji, mixed or mild sentiment.
+EXAMPLES = {
+    "Negation that flips": "not bad at all, honestly pretty great",
+    "Negation that does not": "I don't hate it, but I wouldn't buy it again",
+    "Sarcasm": "Oh great, my flight is delayed again. Just what I needed today.",
+    "Emoji only carries it": "finally home after a 14 hour shift 😍",
+    "Emoji against the words": "my phone died during the final 😂😂",
+    "Mixed": "The food was amazing but the service was painfully slow",
+    "News-like": "Apple will announce new iPhones on Tuesday in Cupertino",
+    "Mild positive": "looking forward to the weekend",
+    "Intensified negative": "worst customer service I have ever experienced, never again",
+    "Hashtag sentiment": "first day at the new job #blessed",
+}
 
 
 @st.cache_resource(show_spinner="Loading model...")
@@ -115,6 +131,51 @@ def render_top_terms(predictor: LRPredictor, text: str, label: str) -> None:
     )
 
 
+@st.cache_data(show_spinner="Computing Integrated Gradients...", max_entries=64)
+def explain_with_gradients(_predictor: RobertaPredictor, text: str, label: str):
+    """Word attributions for ``label``; cached per text, since each costs 128 passes."""
+    from src.inference.attributions import explain_roberta
+
+    return explain_roberta(_predictor, text, target=LABELS.index(label))
+
+
+def render_attributions(predictor: RobertaPredictor, text: str, label: str) -> None:
+    """Which words moved the transformer towards or away from its label."""
+    try:
+        result = explain_with_gradients(predictor, text, label)
+    except Exception as error:  # noqa: BLE001 - an explanation must not break predicting
+        st.warning(f"Could not compute an explanation: {error}")
+        return
+
+    st.subheader(f"Why {label}")
+    st.caption(
+        "Integrated Gradients: each bar is how much a word moved the model's "
+        "score for the predicted class, measured along a path from a blank "
+        "input to this one. Positive bars pushed towards the label, negative "
+        "away. Words are shown after the model's own preprocessing."
+    )
+    st.bar_chart(
+        {
+            "word": [w.token for w in result.words],
+            "attribution": [w.score for w in result.words],
+        },
+        x="word",
+        y="attribution",
+        horizontal=True,
+        sort=False,
+    )
+    st.caption(
+        f"Completeness check: the bars sum to within {abs(result.convergence_delta):.3f} "
+        "of the score difference they explain."
+    )
+
+
+def fill_example() -> None:
+    choice = st.session_state.example
+    if choice:
+        st.session_state.text = EXAMPLES[choice]
+
+
 def render_sidebar(status: dict) -> str | None:
     """Model selector plus an explanation for anything unavailable."""
     usable = {key: info for key, info in status.items() if info["available"]}
@@ -152,7 +213,15 @@ def main() -> None:
         )
         return
 
-    text = st.text_area("Enter text to analyze:", height=140)
+    st.selectbox(
+        "Or try an example",
+        list(EXAMPLES),
+        index=None,
+        placeholder="Hard cases: negation, sarcasm, emoji...",
+        key="example",
+        on_change=fill_example,
+    )
+    text = st.text_area("Enter text to analyze:", height=140, key="text")
 
     predict = st.button("Predict", type="primary")
 
@@ -191,11 +260,13 @@ def main() -> None:
         hide_index=True,
     )
 
-    # Only the linear model's decision is a sum of per-term weights that can
-    # be shown exactly; the neural models get no explanation rather than a
-    # misleading one.
+    # The linear model's decision is a sum of per-term weights and is shown
+    # exactly; the transformer's is attributed with Integrated Gradients. The
+    # recurrent models get no explanation rather than an unchecked one.
     if isinstance(predictor, LRPredictor):
         render_top_terms(predictor, text, prediction.label)
+    elif isinstance(predictor, RobertaPredictor):
+        render_attributions(predictor, text, prediction.label)
 
 
 main()
