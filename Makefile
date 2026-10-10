@@ -4,7 +4,7 @@ PORT ?= 8000
 
 .PHONY: help install install-dev install-train lock api ui test lint format \
         fetch-weights publish-weights \
-        train-lr train-lstm train-gru train-roberta evaluate calibrate behaviour \
+        train-lr train-lstm train-gru train-roberta evaluate significance calibrate behaviour \
         experiments \
         docker-build docker-run clean
 
@@ -99,6 +99,9 @@ train-roberta:  ## Fine-tune the Twitter-RoBERTa checkpoint (GPU strongly advise
 
 evaluate:  ## Score every available model and print the README table
 	$(PYTHON) -m src.evaluate
+
+significance:  ## Bootstrap intervals and McNemar tests from saved predictions
+	$(PYTHON) -m src.significance
 
 calibrate:  ## Fit temperature scaling so confidence scores mean something
 	$(PYTHON) -m src.calibration
