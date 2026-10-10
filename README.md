@@ -46,6 +46,16 @@ fine-tuned run on test; the model card says what that means and why the
 served transformer is left as it is. Macro recall is TweetEval's official metric
 for this task. On it the gap between the base and our fine-tune narrows to
 0.2 points (0.7276 against 0.7253), from 1.2 points of macro F1.
+Validation scores run 3-9 points above test for every model, because of how
+the splits were built. TweetEval's sentiment task is SemEval-2017 Task 4
+Subtask A, whose training data is the aggregate of the 2013-2016 runs, and
+TweetEval drew its 2,000-tweet validation split at random from that pool
+(Barbieri et al., 2020, footnote 3). The 12,284 test tweets were collected new,
+in December 2016 to January 2017, on topics that appear in neither training
+nor development data (Rosenthal et al., 2017, section 3.1). Validation measures
+accuracy on the training distribution; test measures transfer to later tweets
+about new topics, so **quote the test numbers.**
+
 See [MODEL_CARD.md](MODEL_CARD.md) for limitations and intended use.
 
 Each record in `reports/metrics/` stores the hyperparameters, the split sizes and
@@ -394,6 +404,14 @@ from the image and a 503 when no artifacts are present.
 ├── docker-compose.yml
 └── Makefile
 ```
+
+## References
+
+- Barbieri, Camacho-Collados, Neves and Espinosa-Anke. 2020. [TweetEval: Unified
+  Benchmark and Comparative Evaluation for Tweet Classification](https://aclanthology.org/2020.findings-emnlp.148/).
+  Findings of EMNLP 2020.
+- Rosenthal, Farra and Nakov. 2017. [SemEval-2017 Task 4: Sentiment Analysis in
+  Twitter](https://arxiv.org/abs/1912.00741). SemEval 2017.
 
 ## License
 
