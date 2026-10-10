@@ -313,6 +313,7 @@ def test_the_api_refuses_the_baseline(api_client):
 
 class _StubBaseline:
     key = "roberta_base"
+    temperature = 1.0
 
     def __init__(self, base_model=None):
         self.base_model = base_model
@@ -598,6 +599,36 @@ def test_predictions_round_trip():
 
     assert loaded_labels.tolist() == labels
     np.testing.assert_allclose(loaded, probabilities, rtol=1e-6)
+
+
+def test_predictions_keep_raw_probabilities_and_the_served_temperature():
+    from src.calibration import apply_temperature
+
+    raw = np.array([[0.05, 0.05, 0.9], [0.7, 0.2, 0.1]])
+    evaluate.save_predictions("roberta", "test", [2, 0], raw, temperature=2.0)
+
+    _, loaded_raw, temperature = evaluate.load_raw_predictions("roberta", "test")
+    _, served = evaluate.load_predictions("roberta", "test")
+
+    assert temperature == 2.0
+    np.testing.assert_allclose(loaded_raw, raw, rtol=1e-6)
+    np.testing.assert_allclose(served, apply_temperature(raw, 2.0), rtol=1e-5)
+
+
+def test_raw_probabilities_set_the_temperature_aside_and_restore_it():
+    class Scaled:
+        temperature = 3.0
+
+        def predict_proba(self, texts):
+            # Report which temperature was in effect when called.
+            return np.tile([self.temperature, 0.0, 0.0], (len(texts), 1))
+
+    predictor = Scaled()
+    raw, temperature = evaluate.raw_probabilities(predictor, ["a", "b"], batch_size=1)
+
+    assert temperature == 3.0
+    assert raw[:, 0].tolist() == [1.0, 1.0]
+    assert predictor.temperature == 3.0
 
 
 def test_evaluation_saves_the_predictions_behind_its_scores(monkeypatch, tmp_path):

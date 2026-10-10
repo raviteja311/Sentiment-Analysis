@@ -155,12 +155,30 @@ def predict_probabilities(
     ``texts`` must be raw: the predictor applies the same preprocessing the
     model was trained with, so preprocessing here as well would apply it twice.
     """
-    predictor = predictor_for(model, base_model)
+    return _probabilities(predictor_for(model, base_model), texts, batch_size)
+
+
+def _probabilities(predictor, texts, batch_size) -> np.ndarray:
     probabilities = []
     for start in range(0, len(texts), batch_size):
         batch = list(texts[start : start + batch_size])
         probabilities.append(predictor.predict_proba(batch))
     return np.vstack(probabilities) if probabilities else np.zeros((0, len(LABELS)))
+
+
+def raw_probabilities(predictor, texts, batch_size) -> tuple[np.ndarray, float]:
+    """Probabilities before calibration, and the temperature that was set aside.
+
+    Predictors apply their fitted temperature, which is right for serving but
+    wrong for measuring calibration: a reliability diagram or a refitted
+    temperature must start from what the model itself outputs.
+    """
+    temperature = predictor.temperature
+    predictor.temperature = 1.0
+    try:
+        return _probabilities(predictor, texts, batch_size), temperature
+    finally:
+        predictor.temperature = temperature
 
 
 def evaluate_predictions(
@@ -179,27 +197,43 @@ def predictions_path(model: str, split: str):
     return PREDICTIONS_DIR / f"{model}_{split}.npz"
 
 
-def save_predictions(model: str, split: str, labels, probabilities) -> None:
+def save_predictions(
+    model: str, split: str, labels, raw_probabilities, temperature: float = 1.0
+) -> None:
     """Keep every prediction behind a record's scores.
 
     The scores alone cannot say how much they would move on another sample of
     tweets, or whether two models' gap is more than noise; both questions need
     the per-example predictions, and reproducing them means running every
-    model over the whole split again.
+    model over the whole split again. The probabilities are stored before
+    calibration, with the temperature the served model applies on top.
     """
     path = predictions_path(model, split)
     path.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
         path,
         labels=np.asarray(labels, dtype=np.int8),
-        probabilities=np.asarray(probabilities, dtype=np.float32),
+        raw_probabilities=np.asarray(raw_probabilities, dtype=np.float32),
+        temperature=np.float64(temperature),
     )
 
 
-def load_predictions(model: str, split: str) -> tuple[np.ndarray, np.ndarray]:
-    """``(labels, probabilities)`` saved by an earlier evaluation."""
+def load_raw_predictions(model: str, split: str) -> tuple[np.ndarray, np.ndarray, float]:
+    """``(labels, raw probabilities, served temperature)``."""
     with np.load(predictions_path(model, split)) as saved:
-        return saved["labels"].astype(int), saved["probabilities"]
+        return (
+            saved["labels"].astype(int),
+            saved["raw_probabilities"],
+            float(saved["temperature"]),
+        )
+
+
+def load_predictions(model: str, split: str) -> tuple[np.ndarray, np.ndarray]:
+    """``(labels, probabilities)`` as the served model reports them."""
+    from src.calibration import apply_temperature
+
+    labels, raw, temperature = load_raw_predictions(model, split)
+    return labels, apply_temperature(raw, temperature)
 
 
 def evaluate_model(
@@ -215,9 +249,12 @@ def evaluate_model(
     labels = dataset[split]["label"]
 
     LOGGER.info("Evaluating %s on %s (%d examples)...", model, split, len(labels))
-    probabilities = predict_probabilities(model, texts, batch_size, base_model)
-    save_predictions(model, split, labels, probabilities)
-    metrics = compute_metrics(np.asarray(labels), np.argmax(probabilities, axis=1))
+    predictor = predictor_for(model, base_model)
+    raw, temperature = raw_probabilities(predictor, texts, batch_size)
+    save_predictions(model, split, labels, raw, temperature)
+    # Temperature never changes the arg max, so the raw probabilities score
+    # exactly as the served ones do.
+    metrics = compute_metrics(np.asarray(labels), np.argmax(raw, axis=1))
     LOGGER.info("  accuracy=%.4f macro F1=%.4f", metrics["accuracy"], metrics["f1_macro"])
 
     report = update_record(model, split, metrics, labels, batch_size, base_model)
