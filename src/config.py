@@ -59,6 +59,14 @@ SPLITS: tuple[str, ...] = ("train", "validation", "test")
 
 SEED = 42
 
+# A held-out slice of the training split for model selection (epochs,
+# temperatures, which run to serve). The official validation split is not
+# neutral ground: the Cardiff checkpoints were very likely selected on it,
+# which shows as an 8-point validation-to-test gap for the base. Carved
+# stratified and seeded, so every run selects on the same 2,281 tweets.
+DEV_SPLIT = "dev"
+DEV_FRACTION = 0.05
+
 # ---------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------

@@ -17,7 +17,15 @@ from collections import Counter
 
 import numpy as np
 
-from src.config import DATASET_CONFIG, DATASET_NAME, LABELS, SPLITS
+from src.config import (
+    DATASET_CONFIG,
+    DATASET_NAME,
+    DEV_FRACTION,
+    DEV_SPLIT,
+    LABELS,
+    SEED,
+    SPLITS,
+)
 from src.utils.preprocessing import preprocess_tweet
 
 LOGGER = logging.getLogger(__name__)
@@ -38,6 +46,41 @@ def load_raw_dataset(name: str = DATASET_NAME, config: str = DATASET_CONFIG):
         LOGGER.info("  %-10s %7d examples", split, size)
 
     return dataset
+
+
+def dev_indices(labels, fraction: float = DEV_FRACTION, seed: int = SEED):
+    """Positions in the training split held out as the dev split.
+
+    Stratified on the label so the dev split keeps the training class mix,
+    and seeded so it is the same tweets on every machine. Returns
+    ``(train_positions, dev_positions)``, sorted and disjoint.
+    """
+    from sklearn.model_selection import train_test_split
+
+    labels = np.asarray(labels)
+    train, dev = train_test_split(
+        np.arange(len(labels)), test_size=fraction, stratify=labels, random_state=seed
+    )
+    return np.sort(train), np.sort(dev)
+
+
+def with_dev_split(dataset, fraction: float = DEV_FRACTION, seed: int = SEED):
+    """The dataset with a stratified dev split carved out of ``train``.
+
+    ``validation`` and ``test`` are untouched. Select on ``dev`` and report on
+    ``test``; scores on ``validation`` stay comparable with earlier records,
+    but are no longer what any choice is made on.
+
+    Models trained before this existed saw every dev tweet in training, so
+    their dev scores mean nothing; it is for runs trained from here on.
+    """
+    from datasets import DatasetDict
+
+    train, dev = dev_indices(dataset["train"]["label"], fraction, seed)
+    splits = {split: dataset[split] for split in dataset}
+    splits["train"] = dataset["train"].select(train)
+    splits[DEV_SPLIT] = dataset["train"].select(dev)
+    return DatasetDict(splits)
 
 
 def prepare_split(dataset, split: str, spec: str) -> tuple[list[str], np.ndarray]:
