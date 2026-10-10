@@ -9,7 +9,8 @@ Run it as a module::
     python -m src.evaluate --include-base --base-model <checkpoint>  # another base
     python -m src.evaluate --table-only         # re-print the table, evaluate nothing
 
-Each run writes reports/metrics/<model>.json and prints a Markdown table meant to
+Each run writes reports/metrics/<model>.json, keeps every prediction in
+reports/predictions/<model>_<split>.npz for src.significance, and prints a Markdown table meant to
 be pasted straight into the README. That indirection is the point: the project's
 documentation once claimed 92-95% accuracy for a model whose own checkpoint
 recorded 78.9%, because the numbers were typed by hand and the training scripts
@@ -35,6 +36,7 @@ from src.config import (
     LABELS,
     METRICS_DIR,
     MODEL_ALIASES,
+    PREDICTIONS_DIR,
     MODEL_KEYS,
     ROBERTA_CONFIG,
     resolve_model,
@@ -142,6 +144,25 @@ def predictor_for(model: str, base_model: str | None = None):
     return load_predictor(model)
 
 
+def predict_probabilities(
+    model: str,
+    texts,
+    batch_size=DEFAULT_BATCH_SIZE,
+    base_model: str | None = None,
+) -> np.ndarray:
+    """Class probabilities for ``texts``, one row per text.
+
+    ``texts`` must be raw: the predictor applies the same preprocessing the
+    model was trained with, so preprocessing here as well would apply it twice.
+    """
+    predictor = predictor_for(model, base_model)
+    probabilities = []
+    for start in range(0, len(texts), batch_size):
+        batch = list(texts[start : start + batch_size])
+        probabilities.append(predictor.predict_proba(batch))
+    return np.vstack(probabilities) if probabilities else np.zeros((0, len(LABELS)))
+
+
 def evaluate_predictions(
     model: str,
     texts,
@@ -149,21 +170,36 @@ def evaluate_predictions(
     batch_size=DEFAULT_BATCH_SIZE,
     base_model: str | None = None,
 ):
-    """Score one model against labelled texts.
+    """Score one model against labelled texts."""
+    probabilities = predict_probabilities(model, texts, batch_size, base_model)
+    return compute_metrics(np.asarray(labels), np.argmax(probabilities, axis=1))
 
-    ``texts`` must be raw: the predictor applies the same preprocessing the
-    model was trained with, so preprocessing here as well would apply it twice.
+
+def predictions_path(model: str, split: str):
+    return PREDICTIONS_DIR / f"{model}_{split}.npz"
+
+
+def save_predictions(model: str, split: str, labels, probabilities) -> None:
+    """Keep every prediction behind a record's scores.
+
+    The scores alone cannot say how much they would move on another sample of
+    tweets, or whether two models' gap is more than noise; both questions need
+    the per-example predictions, and the transformer takes most of an hour on
+    CPU to reproduce them.
     """
-    predictor = predictor_for(model, base_model)
-    labels = np.asarray(labels)
+    path = predictions_path(model, split)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(
+        path,
+        labels=np.asarray(labels, dtype=np.int8),
+        probabilities=np.asarray(probabilities, dtype=np.float32),
+    )
 
-    probabilities = []
-    for start in range(0, len(texts), batch_size):
-        batch = list(texts[start : start + batch_size])
-        probabilities.append(predictor.predict_proba(batch))
-    stacked = np.vstack(probabilities) if probabilities else np.zeros((0, len(LABELS)))
 
-    return compute_metrics(labels, np.argmax(stacked, axis=1))
+def load_predictions(model: str, split: str) -> tuple[np.ndarray, np.ndarray]:
+    """``(labels, probabilities)`` saved by an earlier evaluation."""
+    with np.load(predictions_path(model, split)) as saved:
+        return saved["labels"].astype(int), saved["probabilities"]
 
 
 def evaluate_model(
@@ -179,9 +215,9 @@ def evaluate_model(
     labels = dataset[split]["label"]
 
     LOGGER.info("Evaluating %s on %s (%d examples)...", model, split, len(labels))
-    metrics = evaluate_predictions(
-        model, texts, labels, batch_size=batch_size, base_model=base_model
-    )
+    probabilities = predict_probabilities(model, texts, batch_size, base_model)
+    save_predictions(model, split, labels, probabilities)
+    metrics = compute_metrics(np.asarray(labels), np.argmax(probabilities, axis=1))
     LOGGER.info("  accuracy=%.4f macro F1=%.4f", metrics["accuracy"], metrics["f1_macro"])
 
     report = update_record(model, split, metrics, labels, batch_size, base_model)

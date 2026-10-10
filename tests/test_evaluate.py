@@ -1,5 +1,6 @@
 """Metrics records and the Markdown table that gets pasted into the README."""
 
+import numpy as np
 import pytest
 
 from src import evaluate
@@ -7,6 +8,12 @@ from src.config import LABELS, PROJECT_ROOT
 from src.utils.io import load_json, save_json
 from src.utils.metrics import build_report, compute_metrics
 from tests.conftest import requires_model
+
+
+@pytest.fixture(autouse=True)
+def _scratch_predictions(tmp_path, monkeypatch):
+    # Evaluations save their predictions; never into the committed reports/.
+    monkeypatch.setattr(evaluate, "PREDICTIONS_DIR", tmp_path / "predictions")
 
 
 @pytest.fixture
@@ -580,3 +587,33 @@ def test_evaluate_predictions_scores_a_real_model():
     metrics = evaluate.evaluate_predictions("lr", texts, [2, 0, 1])
     assert 0.0 <= metrics["accuracy"] <= 1.0
     assert len(metrics["confusion_matrix"]) == len(LABELS)
+
+
+def test_predictions_round_trip():
+    labels = [2, 0, 1]
+    probabilities = np.array([[0.1, 0.2, 0.7], [0.8, 0.1, 0.1], [0.2, 0.6, 0.2]])
+    evaluate.save_predictions("lr", "test", labels, probabilities)
+
+    loaded_labels, loaded = evaluate.load_predictions("lr", "test")
+
+    assert loaded_labels.tolist() == labels
+    np.testing.assert_allclose(loaded, probabilities, rtol=1e-6)
+
+
+def test_evaluation_saves_the_predictions_behind_its_scores(monkeypatch, tmp_path):
+    from src.config import BASELINE_KEY
+
+    monkeypatch.setattr(evaluate, "METRICS_DIR", tmp_path)
+    monkeypatch.setattr(evaluate, "baseline_predictor", _StubBaseline)
+    monkeypatch.setattr(evaluate, "available_models", lambda: [])
+    monkeypatch.setattr(
+        evaluate,
+        "load_raw_dataset",
+        lambda: {"test": {"text": ["a", "b"], "label": [2, 0]}},
+    )
+
+    evaluate.evaluate_models(None, include_base=True)
+
+    labels, probabilities = evaluate.load_predictions(BASELINE_KEY, "test")
+    assert labels.tolist() == [2, 0]
+    assert probabilities.shape == (2, 3)

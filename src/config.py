@@ -29,6 +29,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MODELS_DIR = PROJECT_ROOT / "models"
 REPORTS_DIR = PROJECT_ROOT / "reports"
 METRICS_DIR = REPORTS_DIR / "metrics"
+PREDICTIONS_DIR = REPORTS_DIR / "predictions"
 
 LR_DIR = MODELS_DIR / "lr"
 LSTM_DIR = MODELS_DIR / "lstm"
