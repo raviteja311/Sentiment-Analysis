@@ -3,7 +3,8 @@
 For the TF-IDF + LogisticRegression pipeline a prediction is a sum, term by
 term, of tf-idf value times class coefficient, so it can be shown exactly.
 Nothing here applies to the neural models, whose decisions are not sums of
-per-term weights; the UI only offers this for the linear model.
+per-term weights; for the transformer, src.inference.attributions computes
+Integrated Gradients instead.
 """
 
 from __future__ import annotations

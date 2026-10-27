@@ -29,6 +29,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MODELS_DIR = PROJECT_ROOT / "models"
 REPORTS_DIR = PROJECT_ROOT / "reports"
 METRICS_DIR = REPORTS_DIR / "metrics"
+PREDICTIONS_DIR = REPORTS_DIR / "predictions"
 
 LR_DIR = MODELS_DIR / "lr"
 LSTM_DIR = MODELS_DIR / "lstm"
@@ -57,6 +58,14 @@ DATASET_CONFIG = "sentiment"
 SPLITS: tuple[str, ...] = ("train", "validation", "test")
 
 SEED = 42
+
+# A held-out slice of the training split for model selection (epochs,
+# temperatures, which run to serve). The official validation split is not
+# neutral ground: the Cardiff checkpoints were very likely selected on it,
+# which shows as an 8-point validation-to-test gap for the base. Carved
+# stratified and seeded, so every run selects on the same 2,281 tweets.
+DEV_SPLIT = "dev"
+DEV_FRACTION = 0.05
 
 # ---------------------------------------------------------------------------
 # Models
@@ -284,6 +293,9 @@ class RobertaConfig:
     learning_rate: float = 2e-5
     weight_decay: float = 0.01
     early_stopping_patience: int = 1
+    # Share of training steps over which the learning rate ramps up from 0.
+    # The served run used none; the Phase 2 grid uses 6%.
+    warmup_ratio: float = 0.0
 
 
 LR_CONFIG = LRConfig()

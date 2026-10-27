@@ -1,5 +1,6 @@
 """Metrics records and the Markdown table that gets pasted into the README."""
 
+import numpy as np
 import pytest
 
 from src import evaluate
@@ -7,6 +8,12 @@ from src.config import LABELS, PROJECT_ROOT
 from src.utils.io import load_json, save_json
 from src.utils.metrics import build_report, compute_metrics
 from tests.conftest import requires_model
+
+
+@pytest.fixture(autouse=True)
+def _scratch_predictions(tmp_path, monkeypatch):
+    # Evaluations save their predictions; never into the committed reports/.
+    monkeypatch.setattr(evaluate, "PREDICTIONS_DIR", tmp_path / "predictions")
 
 
 @pytest.fixture
@@ -44,13 +51,33 @@ def test_table_has_a_macro_recall_column(sample_report):
     )
 
 
-def test_table_shows_n_a_for_records_without_macro_recall(sample_report):
-    # Every committed record predates the metric; the table must still render.
-    old = dict(sample_report)
-    old["metrics"] = {"test": dict(sample_report["metrics"]["test"])}
+def _without_recall_macro(report, *, keep_classification_report=True):
+    old = dict(report)
+    old["metrics"] = {"test": dict(report["metrics"]["test"])}
     del old["metrics"]["test"]["recall_macro"]
-    table = evaluate.markdown_table([old])
-    assert "n/a" in table.splitlines()[2]
+    if not keep_classification_report:
+        del old["metrics"]["test"]["classification_report"]
+    return old
+
+
+def test_macro_recall_is_recovered_from_the_classification_report(sample_report):
+    # Records written before recall_macro existed still carry sklearn's report.
+    expected = sample_report["metrics"]["test"]["recall_macro"]
+    old = _without_recall_macro(sample_report)
+    assert evaluate.macro_recall(old["metrics"]["test"]) == pytest.approx(expected)
+    assert f"{expected:.4f}" in evaluate.markdown_table([old]).splitlines()[2]
+
+
+def test_table_shows_n_a_only_when_recall_cannot_be_recovered(sample_report):
+    old = _without_recall_macro(sample_report, keep_classification_report=False)
+    assert "n/a" in evaluate.markdown_table([old]).splitlines()[2]
+
+
+def test_no_committed_record_shows_n_a():
+    # TweetEval's official metric must be in every row the README quotes.
+    reports = evaluate.load_reports()
+    assert reports
+    assert "n/a" not in evaluate.markdown_table(reports)
 
 
 def test_metrics_include_per_class_and_confusion_matrix():
@@ -286,6 +313,7 @@ def test_the_api_refuses_the_baseline(api_client):
 
 class _StubBaseline:
     key = "roberta_base"
+    temperature = 1.0
 
     def __init__(self, base_model=None):
         self.base_model = base_model
@@ -560,3 +588,63 @@ def test_evaluate_predictions_scores_a_real_model():
     metrics = evaluate.evaluate_predictions("lr", texts, [2, 0, 1])
     assert 0.0 <= metrics["accuracy"] <= 1.0
     assert len(metrics["confusion_matrix"]) == len(LABELS)
+
+
+def test_predictions_round_trip():
+    labels = [2, 0, 1]
+    probabilities = np.array([[0.1, 0.2, 0.7], [0.8, 0.1, 0.1], [0.2, 0.6, 0.2]])
+    evaluate.save_predictions("lr", "test", labels, probabilities)
+
+    loaded_labels, loaded = evaluate.load_predictions("lr", "test")
+
+    assert loaded_labels.tolist() == labels
+    np.testing.assert_allclose(loaded, probabilities, rtol=1e-6)
+
+
+def test_predictions_keep_raw_probabilities_and_the_served_temperature():
+    from src.calibration import apply_temperature
+
+    raw = np.array([[0.05, 0.05, 0.9], [0.7, 0.2, 0.1]])
+    evaluate.save_predictions("roberta", "test", [2, 0], raw, temperature=2.0)
+
+    _, loaded_raw, temperature = evaluate.load_raw_predictions("roberta", "test")
+    _, served = evaluate.load_predictions("roberta", "test")
+
+    assert temperature == 2.0
+    np.testing.assert_allclose(loaded_raw, raw, rtol=1e-6)
+    np.testing.assert_allclose(served, apply_temperature(raw, 2.0), rtol=1e-5)
+
+
+def test_raw_probabilities_set_the_temperature_aside_and_restore_it():
+    class Scaled:
+        temperature = 3.0
+
+        def predict_proba(self, texts):
+            # Report which temperature was in effect when called.
+            return np.tile([self.temperature, 0.0, 0.0], (len(texts), 1))
+
+    predictor = Scaled()
+    raw, temperature = evaluate.raw_probabilities(predictor, ["a", "b"], batch_size=1)
+
+    assert temperature == 3.0
+    assert raw[:, 0].tolist() == [1.0, 1.0]
+    assert predictor.temperature == 3.0
+
+
+def test_evaluation_saves_the_predictions_behind_its_scores(monkeypatch, tmp_path):
+    from src.config import BASELINE_KEY
+
+    monkeypatch.setattr(evaluate, "METRICS_DIR", tmp_path)
+    monkeypatch.setattr(evaluate, "baseline_predictor", _StubBaseline)
+    monkeypatch.setattr(evaluate, "available_models", lambda: [])
+    monkeypatch.setattr(
+        evaluate,
+        "load_raw_dataset",
+        lambda: {"test": {"text": ["a", "b"], "label": [2, 0]}},
+    )
+
+    evaluate.evaluate_models(None, include_base=True)
+
+    labels, probabilities = evaluate.load_predictions(BASELINE_KEY, "test")
+    assert labels.tolist() == [2, 0]
+    assert probabilities.shape == (2, 3)

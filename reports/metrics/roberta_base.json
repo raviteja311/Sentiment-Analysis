@@ -74,6 +74,19 @@
           "f1-score": 0.7240967924319184,
           "support": 12284.0
         }
+      },
+      "bootstrap": {
+        "n_resamples": 1000,
+        "confidence": 0.95,
+        "seed": 42,
+        "f1_macro": [
+          0.7158823241534062,
+          0.7321503999609593
+        ],
+        "recall_macro": [
+          0.7192741830129358,
+          0.7353622669546056
+        ]
       }
     },
     "validation": {
@@ -138,14 +151,14 @@
     }
   },
   "evaluation": {
-    "split": "validation",
-    "size": 2000,
+    "split": "test",
+    "size": 12284,
     "batch_size": 64,
     "class_distribution": {
-      "negative": 312,
-      "neutral": 869,
-      "positive": 819
+      "negative": 3972,
+      "neutral": 5937,
+      "positive": 2375
     },
-    "evaluated_at": "2026-09-25T12:39:03+00:00"
+    "evaluated_at": "2026-10-10T08:49:09+00:00"
   }
 }

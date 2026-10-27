@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 400" width="100%" style="max-width: 480px; height: auto" role="img" aria-labelledby="t d">
+<title id="t">Reliability diagram: Logistic Regression</title>
+<desc id="d">Test split. Fitted T = 1.00 (no softening); ECE 0.044. Points below the dashed diagonal are overconfident.</desc>
+<style>
+  .surface { fill: #fcfcfb; }
+  .ink { fill: #0b0b0b; font: 600 14px system-ui, sans-serif; }
+  .ink-2 { fill: #52514e; font: 12px system-ui, sans-serif; }
+  .grid { stroke: #e4e3df; stroke-width: 1; }
+  .axis { stroke: #8a8984; stroke-width: 1; }
+  .ideal { stroke: #8a8984; stroke-width: 1.5; stroke-dasharray: 4 4; fill: none; }
+  .s1 { stroke: #2a78d6; fill: #2a78d6; }
+  .s2 { stroke: #eb6834; fill: #eb6834; }
+  .line { fill: none; stroke-width: 2; stroke-linejoin: round; }
+  .dot { stroke: #fcfcfb; stroke-width: 2; }
+  @media (prefers-color-scheme: dark) {
+    .surface { fill: #1a1a19; }
+    .ink { fill: #ffffff; }
+    .ink-2 { fill: #c3c2b7; }
+    .grid { stroke: #2e2e2c; }
+    .s1 { stroke: #3987e5; fill: #3987e5; }
+    .s2 { stroke: #d95926; fill: #d95926; }
+    .dot { stroke: #1a1a19; }
+  }
+</style>
+<rect class="surface" width="480" height="400" rx="8"/>
+<text class="ink" x="16" y="24">Logistic Regression</text>
+<text class="ink-2" x="16" y="42">Test split. Fitted T = 1.00 (no softening); ECE 0.044</text>
+<circle class="dot s1" cx="22" cy="54" r="4.5"/><text class="ink-2" x="32" y="58">Raw model output</text><line class="ideal" x1="356" x2="380" y1="54" y2="54"/><text class="ink-2" x="386" y="58">Perfect</text>
+<line class="grid" x1="56" x2="456" y1="348.0" y2="348.0"/><text class="ink-2" x="48" y="352.0" text-anchor="end">0.0</text><line class="grid" x1="56" x2="456" y1="293.6" y2="293.6"/><text class="ink-2" x="48" y="297.6" text-anchor="end">0.2</text><line class="grid" x1="56" x2="456" y1="239.2" y2="239.2"/><text class="ink-2" x="48" y="243.2" text-anchor="end">0.4</text><line class="grid" x1="56" x2="456" y1="184.8" y2="184.8"/><text class="ink-2" x="48" y="188.8" text-anchor="end">0.6</text><line class="grid" x1="56" x2="456" y1="130.4" y2="130.4"/><text class="ink-2" x="48" y="134.4" text-anchor="end">0.8</text><line class="grid" x1="56" x2="456" y1="76.0" y2="76.0"/><text class="ink-2" x="48" y="80.0" text-anchor="end">1.0</text><text class="ink-2" x="113.1" y="366" text-anchor="middle">0.4</text><text class="ink-2" x="227.4" y="366" text-anchor="middle">0.6</text><text class="ink-2" x="341.7" y="366" text-anchor="middle">0.8</text><text class="ink-2" x="456.0" y="366" text-anchor="middle">1.0</text>
+<line class="axis" x1="56" x2="456" y1="348.0" y2="348.0"/>
+<line class="ideal" x1="56.0" y1="266.4" x2="456.0" y2="76.0"/>
+<text class="ink-2" x="256.0" y="388" text-anchor="middle">Confidence (top-class probability)</text>
+<text class="ink-2" transform="translate(16 212.0) rotate(-90)" text-anchor="middle">Accuracy</text>
+  <polyline class="line s1" points="100.6,238.4 134.3,228.9 170.2,202.5 207.4,196.3 245.9,182.9 283.9,177.8 321.7,168.7 360.0,149.0 397.5,140.3 434.5,104.9"/>
+  <circle class="dot s1" cx="100.6" cy="238.4" r="4.5"><title>Raw: confidence 0.378, accuracy 0.403, 561 tweets</title></circle>
+  <circle class="dot s1" cx="134.3" cy="228.9" r="4.5"><title>Raw: confidence 0.437, accuracy 0.438, 1701 tweets</title></circle>
+  <circle class="dot s1" cx="170.2" cy="202.5" r="4.5"><title>Raw: confidence 0.500, accuracy 0.535, 2354 tweets</title></circle>
+  <circle class="dot s1" cx="207.4" cy="196.3" r="4.5"><title>Raw: confidence 0.565, accuracy 0.558, 1897 tweets</title></circle>
+  <circle class="dot s1" cx="245.9" cy="182.9" r="4.5"><title>Raw: confidence 0.632, accuracy 0.607, 1671 tweets</title></circle>
+  <circle class="dot s1" cx="283.9" cy="177.8" r="4.5"><title>Raw: confidence 0.699, accuracy 0.626, 1275 tweets</title></circle>
+  <circle class="dot s1" cx="321.7" cy="168.7" r="4.5"><title>Raw: confidence 0.765, accuracy 0.659, 989 tweets</title></circle>
+  <circle class="dot s1" cx="360.0" cy="149.0" r="4.5"><title>Raw: confidence 0.832, accuracy 0.732, 786 tweets</title></circle>
+  <circle class="dot s1" cx="397.5" cy="140.3" r="4.5"><title>Raw: confidence 0.898, accuracy 0.764, 626 tweets</title></circle>
+  <circle class="dot s1" cx="434.5" cy="104.9" r="4.5"><title>Raw: confidence 0.962, accuracy 0.894, 424 tweets</title></circle>
+</svg>

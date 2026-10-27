@@ -1,0 +1,113 @@
+{
+  "split": "test",
+  "n_resamples": 1000,
+  "confidence": 0.95,
+  "seed": 42,
+  "test": "McNemar exact (binomial on discordant pairs)",
+  "comparisons": [
+    {
+      "a": "roberta",
+      "b": "roberta_base",
+      "split": "test",
+      "mcnemar": {
+        "only_a_correct": 813,
+        "only_b_correct": 981,
+        "p_value": 7.964129338491594e-05
+      },
+      "difference": {
+        "f1_macro": {
+          "estimate": -0.011640289339956533,
+          "interval": [
+            -0.018221537936722657,
+            -0.005323473440224475
+          ]
+        },
+        "recall_macro": {
+          "estimate": -0.002262578615720545,
+          "interval": [
+            -0.00901166800899335,
+            0.004322362464914295
+          ]
+        }
+      }
+    },
+    {
+      "a": "roberta",
+      "b": "roberta_base__twitter_roberta_base_sentiment_latest",
+      "split": "test",
+      "mcnemar": {
+        "only_a_correct": 958,
+        "only_b_correct": 1111,
+        "p_value": 0.0008286614805513863
+      },
+      "difference": {
+        "f1_macro": {
+          "estimate": -0.013112943345298222,
+          "interval": [
+            -0.02064926675672412,
+            -0.006307351176444308
+          ]
+        },
+        "recall_macro": {
+          "estimate": -0.011019520784209202,
+          "interval": [
+            -0.01843151583761888,
+            -0.004512785207259071
+          ]
+        }
+      }
+    },
+    {
+      "a": "roberta_base",
+      "b": "roberta_base__twitter_roberta_base_sentiment_latest",
+      "split": "test",
+      "mcnemar": {
+        "only_a_correct": 816,
+        "only_b_correct": 801,
+        "p_value": 0.7277353996734656
+      },
+      "difference": {
+        "f1_macro": {
+          "estimate": -0.0014726540053416892,
+          "interval": [
+            -0.007967833294953186,
+            0.004676690779266384
+          ]
+        },
+        "recall_macro": {
+          "estimate": -0.008756942168488657,
+          "interval": [
+            -0.015322357246362741,
+            -0.0023736309899604164
+          ]
+        }
+      }
+    },
+    {
+      "a": "lstm",
+      "b": "gru",
+      "split": "test",
+      "mcnemar": {
+        "only_a_correct": 519,
+        "only_b_correct": 460,
+        "p_value": 0.06372875151280756
+      },
+      "difference": {
+        "f1_macro": {
+          "estimate": 0.0003280464008018624,
+          "interval": [
+            -0.004582602396901053,
+            0.0054046470906474655
+          ]
+        },
+        "recall_macro": {
+          "estimate": -0.005631901024966135,
+          "interval": [
+            -0.010419797808351536,
+            -0.0005412788241421252
+          ]
+        }
+      }
+    }
+  ]
+}

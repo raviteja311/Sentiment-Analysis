@@ -30,13 +30,14 @@ served record's; test is consulted only for the final table::
 
 import argparse
 import logging
+import shutil
 import sys
-from dataclasses import asdict, replace
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 import numpy as np
 import torch
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.metrics import accuracy_score, f1_score, recall_score
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
@@ -58,12 +59,37 @@ from src.config import (
     SEED,
     TRAIN_PREPROCESSING,
 )
-from src.data import describe, load_raw_dataset
+from src.data import describe, load_raw_dataset, with_dev_split
+from src.evaluate import write_predictions
 from src.utils.io import save_json
 from src.utils.metrics import build_report, compute_metrics
 from src.utils.preprocessing import preprocess_tweet, write_artifact_spec
 
 LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class RunOptions:
+    """How a run is conducted, as opposed to what it trains (RobertaConfig).
+
+    The defaults reproduce the served recipe. The Phase 2 grid
+    (src.finetune_grid) selects on the dev split by macro recall, varies the
+    seed and preprocessing, and keeps predictions instead of weights.
+    """
+
+    seed: int = SEED
+    # None means config.TRAIN_PREPROCESSING["roberta"].
+    preprocessing: str | None = None
+    # The split epochs are chosen on: "validation", or "dev" carved from train.
+    select_on: str = "validation"
+    select_metric: str = "f1_macro"
+    # Write the fine-tuned weights. A grid run needs only its predictions, and
+    # each saved model is ~500 MB.
+    save_weights: bool = True
+    # Write raw class probabilities per split beside the record.
+    save_predictions: bool = False
+    # Keep only the first N examples of every split: a smoke test, not a run.
+    limit: int | None = None
 
 
 def preprocess_examples(examples, spec: str):
@@ -137,17 +163,46 @@ def trainer_metrics(eval_pred):
     return {
         "accuracy": accuracy_score(labels, preds),
         "f1_macro": f1_score(labels, preds, average="macro"),
+        "recall_macro": recall_score(labels, preds, average="macro"),
     }
 
 
-def main(config=ROBERTA_CONFIG, out_dir: Path | None = None):
+def limit_splits(dataset, limit: int | None):
+    """Every split cut to its first ``limit`` examples; unchanged if None."""
+    if limit is None:
+        return dataset
+    from datasets import DatasetDict
+
+    return DatasetDict(
+        {
+            split: data.select(range(min(limit, len(data))))
+            for split, data in dataset.items()
+        }
+    )
+
+
+def softmax(logits: np.ndarray) -> np.ndarray:
+    shifted = logits - logits.max(axis=1, keepdims=True)
+    exp = np.exp(shifted)
+    return exp / exp.sum(axis=1, keepdims=True)
+
+
+SERVED_RUN = RunOptions()
+
+
+def main(
+    config=ROBERTA_CONFIG, out_dir: Path | None = None, options: RunOptions = SERVED_RUN
+):
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     paths = output_paths(out_dir)
     model_dir = paths["model"]
     model_dir.mkdir(parents=True, exist_ok=True)
 
-    spec = TRAIN_PREPROCESSING["roberta"]
+    spec = options.preprocessing or TRAIN_PREPROCESSING["roberta"]
     dataset = load_raw_dataset()
+    if options.select_on == "dev":
+        dataset = with_dev_split(dataset)
+    dataset = limit_splits(dataset, options.limit)
     dataset = dataset.map(preprocess_examples, batched=True, fn_kwargs={"spec": spec})
 
     LOGGER.info("Loading tokenizer and model: %s", config.base_model)
@@ -184,17 +239,18 @@ def main(config=ROBERTA_CONFIG, out_dir: Path | None = None):
         num_train_epochs=config.epochs,
         learning_rate=config.learning_rate,
         weight_decay=config.weight_decay,
+        warmup_ratio=config.warmup_ratio,
         logging_steps=50,
         # One intermediate checkpoint, not two. Each is ~498 MB and duplicates
         # weights that the final save writes anyway.
         save_total_limit=1,
         load_best_model_at_end=True,
-        metric_for_best_model="f1_macro",
+        metric_for_best_model=options.select_metric,
         greater_is_better=True,
         # Keep TensorBoard event files out of models/, where they were being
         # committed alongside the weights.
         logging_dir=str(paths["logs"]),
-        seed=SEED,
+        seed=options.seed,
         push_to_hub=False,
         # Mixed precision roughly halves activation memory. On a 4 GB card that
         # is the difference between fine-tuning at batch 8 and an OOM.
@@ -205,7 +261,7 @@ def main(config=ROBERTA_CONFIG, out_dir: Path | None = None):
         model=model,
         args=training_args,
         train_dataset=tokenized["train"],
-        eval_dataset=tokenized["validation"],
+        eval_dataset=tokenized[options.select_on],
         processing_class=tokenizer,
         data_collator=DataCollatorWithPadding(tokenizer=tokenizer),
         compute_metrics=trainer_metrics,
@@ -223,25 +279,45 @@ def main(config=ROBERTA_CONFIG, out_dir: Path | None = None):
     LOGGER.info("Wrote training history: %s", paths["history"])
 
     metrics = {}
-    for split in ("validation", "test"):
+    splits = [s for s in ("dev", "validation", "test") if s in tokenized]
+    for split in splits:
         output = trainer.predict(tokenized[split])
         preds = np.argmax(output.predictions, axis=-1)
         metrics[split] = compute_metrics(output.label_ids, preds)
         LOGGER.info(
-            "%s: accuracy=%.4f macro F1=%.4f",
+            "%s: accuracy=%.4f macro F1=%.4f macro recall=%.4f",
             split,
             metrics[split]["accuracy"],
             metrics[split]["f1_macro"],
+            metrics[split]["recall_macro"],
         )
+        if options.save_predictions:
+            write_predictions(
+                model_dir / "predictions" / f"{split}.npz",
+                output.label_ids,
+                softmax(output.predictions.astype(np.float64)),
+            )
 
-    LOGGER.info("Saving model and tokenizer to %s", model_dir)
-    trainer.save_model(str(model_dir))
-    tokenizer.save_pretrained(str(model_dir))
-    write_artifact_spec("roberta", spec, directory=model_dir)
+    if options.save_weights:
+        LOGGER.info("Saving model and tokenizer to %s", model_dir)
+        trainer.save_model(str(model_dir))
+        tokenizer.save_pretrained(str(model_dir))
+        write_artifact_spec("roberta", spec, directory=model_dir)
+    # The Trainer keeps its best checkpoint on disk to reload it at the end;
+    # once the predictions are written it is ~1.5 GB of nothing.
+    for checkpoint in model_dir.glob("checkpoint-*"):
+        shutil.rmtree(checkpoint)
 
     report = build_report(
         model="roberta",
-        hyperparameters={**asdict(config), "preprocessing": spec},
+        hyperparameters={
+            **asdict(config),
+            "preprocessing": spec,
+            "seed": options.seed,
+            "selected_on": options.select_on,
+            "selection_metric": options.select_metric,
+            "limit": options.limit,
+        },
         dataset=describe(dataset),
         metrics=metrics,
     )
