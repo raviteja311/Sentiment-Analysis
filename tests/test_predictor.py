@@ -250,21 +250,34 @@ def test_the_single_step_call_matches_model_predict(monkeypatch):
 
 
 @requires_model("lstm")
-def test_a_model_trained_without_masking_keeps_its_all_zero_row_for_empty_text(
+def test_a_model_trained_without_masking_gets_an_all_zero_row_for_empty_text(
     monkeypatch,
 ):
-    # The shipped recurrent models predate masking. They were trained on
-    # all-zero rows for texts that tokenize to nothing and must keep getting
-    # them, so their outputs stay byte-for-byte what they were.
+    # The shipped lstm and gru were trained with masking, so this branch is
+    # forced here rather than read from the artifact. A model trained before
+    # masking must keep getting all-zero rows for texts that tokenize to
+    # nothing, so its outputs stay what they were.
+    from src.utils import sequences
+
     predictor = predictor_module.load_predictor("lstm")
-    if predictor._masks_padding:
-        pytest.skip("the lstm artifact on disk was trained with masking")
-    # Compare raw model outputs: predict_proba would also apply the fitted
-    # temperature, which is not what this test is about.
-    monkeypatch.setattr(predictor, "temperature", 1.0)
-    zeros = np.zeros((1, predictor_module.SEQUENCE_CONFIG.max_len), dtype=np.int32)
-    expected = predictor._model.predict_on_batch(zeros)
-    np.testing.assert_allclose(predictor.predict_proba(["!!!"]), expected, atol=1e-6)
+    monkeypatch.setattr(predictor, "_masks_padding", False)
+    # Only the input is under test; keep the masked model off a fully masked row.
+    monkeypatch.setattr(
+        predictor._model,
+        "predict_on_batch",
+        lambda rows: np.full((len(rows), 3), 1 / 3, dtype=np.float32),
+    )
+    seen = {}
+
+    def spy(tokenizer, texts, max_len, empty_to_oov):
+        seen["empty_to_oov"] = empty_to_oov
+        seen["rows"] = sequences.texts_to_padded(tokenizer, texts, max_len, empty_to_oov)
+        return seen["rows"]
+
+    monkeypatch.setattr(predictor_module, "texts_to_padded", spy)
+    predictor.predict_proba(["!!!"])
+    assert seen["empty_to_oov"] is False
+    assert not seen["rows"].any()
 
 
 @requires_model("lstm")
