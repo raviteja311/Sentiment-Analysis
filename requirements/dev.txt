@@ -7,6 +7,10 @@ pytest==9.1.1
 # Test client for the FastAPI layer.
 httpx==0.28.1
 
+# tests/test_data.py builds a DatasetDict to test the dev split; same pin as
+# train.txt.
+datasets==4.4.1
+
 ruff==0.16.8
 black==26.5.1
 
