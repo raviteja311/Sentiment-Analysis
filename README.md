@@ -146,10 +146,10 @@ curl -X POST localhost:8000/predict \
 ```json
 {
   "model": "roberta",
-  "version": "a378eddd7113",
+  "version": "735b42b170ac",
   "label": "positive",
-  "confidence": 0.9474,
-  "probabilities": {"negative": 0.0210, "neutral": 0.0315, "positive": 0.9474}
+  "confidence": 0.9527,
+  "probabilities": {"negative": 0.0189, "neutral": 0.0284, "positive": 0.9527}
 }
 ```
 
