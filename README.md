@@ -363,9 +363,12 @@ was locked. `make install`, CI and the Docker image all install from the
 locks; edit a `.txt`, run `make lock`, and commit both.
 
 Tests skip themselves rather than fail when a model's weights are absent, so the
-suite is meaningful on a clone where `make fetch-weights` has not been run. CI runs lint, the test suite on
-Python 3.11 and 3.12, and a container smoke test that asserts real predictions
-from the image and a 503 when no artifacts are present.
+suite is meaningful on a clone where `make fetch-weights` has not been run.
+CI runs lint; the test suite on Python 3.11 and 3.12 without the weights; a
+`test-with-weights` job that fetches the weights from the Hub, cached by the
+manifest's hash and checked against its sha256 values, and fails if any test
+skips; and a container smoke test that asserts real predictions from the
+image and a 503 when no artifacts are present.
 
 ## Project structure
 

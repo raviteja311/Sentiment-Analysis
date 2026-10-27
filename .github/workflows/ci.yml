@@ -58,9 +58,70 @@ jobs:
       - name: Run tests
         run: pytest -q
 
+  test-with-weights:
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --extra-index-url https://download.pytorch.org/whl/cpu \
+            -r requirements/dev.lock
+
+      # Keyed on the manifest, so the 574 MB download happens once per
+      # published set of weights.
+      - name: Cache model weights
+        uses: actions/cache@v4
+        with:
+          path: |
+            models/lstm/model_final.keras
+            models/gru/model_final.keras
+            models/roberta/model.safetensors
+          key: weights-${{ hashFiles('models/remote_manifest.json') }}
+
+      - name: Fetch weights
+        run: python -m src.artifacts
+
+      # src.artifacts only verifies files it downloads; files restored from
+      # the cache are skipped, so check every file here.
+      - name: Verify weights against the manifest
+        run: |
+          python - <<'EOF'
+          import hashlib, json, pathlib
+          manifest = json.load(open("models/remote_manifest.json"))
+          for relative, expected in manifest["files"].items():
+              digest = hashlib.sha256()
+              with open(pathlib.Path("models", relative), "rb") as handle:
+                  for block in iter(lambda: handle.read(1 << 20), b""):
+                      digest.update(block)
+              actual = digest.hexdigest()
+              assert actual == expected, f"{relative}: sha256 {actual} != manifest {expected}"
+          print(f"all {len(manifest['files'])} weights files match the manifest")
+          EOF
+
+      - name: Run the full suite, no skips allowed
+        run: |
+          pytest -rs --junitxml=report.xml
+          python - <<'EOF'
+          import xml.etree.ElementTree as ET
+          root = ET.parse("report.xml").getroot()
+          suite = root if root.tag == "testsuite" else root.find("testsuite")
+          skipped = int(suite.get("skipped", 0))
+          assert skipped == 0, f"{skipped} tests skipped with the weights present"
+          print(f"{suite.get('tests')} tests, 0 skipped")
+          EOF
+
   container:
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [lint, test, test-with-weights]
     steps:
       - uses: actions/checkout@v4
         with:
