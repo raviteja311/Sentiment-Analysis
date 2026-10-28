@@ -21,6 +21,13 @@ positive. The model rarely gets the polarity backwards. What it gets wrong is
 **whether a tweet carries sentiment at all**, and it errs towards negative when
 it does: neutral read as negative is the largest single group.
 
+`reports/errors.csv` is not committed while it is untagged, because it can be
+regenerated exactly. `python -m src.errors export` reads the saved test
+predictions in `reports/predictions/` and the TweetEval test split, and with the
+fixed seed it writes the same 100 rows as the table above. `export` overwrites
+the file, tags included, so commit `reports/errors.csv` as soon as tagging
+starts and do not run `export` again after that.
+
 ## How to tag
 
 Read each row of `reports/errors.csv` and write one tag in the `tag` column,
