@@ -436,7 +436,7 @@ what keeps it inside 4 GB of VRAM.
 ## Tests and quality
 
 ```bash
-make test         # 521 tests
+make test         # 568 tests
 make lint         # ruff + black
 make lock         # regenerate requirements/*.lock, with hashes, after editing requirements/*.txt
 ```
@@ -464,23 +464,35 @@ image and a 503 when no artifacts are present.
 
 ```
 .
-├── api/                  # FastAPI service and structured logging
+├── api/                  # FastAPI service, structured logging, rate limiting
 ├── app/                  # Streamlit UI
+├── docs/                 # Serving rule, error analysis
 ├── models/               # Small artifacts; large weights fetched from the Hub
-├── reports/metrics/      # Generated metrics records
-├── requirements/         # base, inference-cpu, train, dev
+├── notebooks/            # Kaggle notebook for the Phase 2 fine-tune grid
+├── reports/
+│   ├── metrics/          # Generated metrics and behaviour records
+│   ├── predictions/      # Per-example probabilities behind every score
+│   ├── experiments/      # Significance, calibration comparison, validation-only experiments
+│   └── figures/          # Reliability diagrams
+├── requirements/         # base, inference-cpu, train, dev (.txt and hash-locked .lock)
+├── scripts/              # publish_weights.py
 ├── src/
-│   ├── artifacts.py      # fetches the large weights
+│   ├── artifacts.py      # fetches and verifies the large weights
+│   ├── behaviour.py      # CheckList-style behavioural checks
 │   ├── calibration.py    # temperature scaling
 │   ├── config.py         # labels, paths, hyperparameters
-│   ├── data.py           # dataset loading
+│   ├── data.py           # dataset loading and the dev split
 │   ├── embeddings.py     # pretrained GloVe vectors
+│   ├── errors.py         # error sample export and tag summary
 │   ├── evaluate.py       # evaluation and the results table
-│   ├── inference/        # shared predictor and model versioning
+│   ├── experiments.py    # class-weight, decision-bias and label-shift comparisons
+│   ├── finetune_grid.py  # Phase 2 grid runner and serving rule
+│   ├── reliability.py    # reliability diagrams for every model
+│   ├── significance.py   # bootstrap intervals and McNemar's test
+│   ├── inference/        # predictor, versioning, explanations
 │   ├── models/           # Keras architectures
 │   ├── training/         # training entry points
-│   └── utils/            # preprocessing, metrics, IO
-├── scripts/              # publish_weights.py
+│   └── utils/            # preprocessing, sequences, metrics, IO
 ├── tests/
 ├── Dockerfile
 ├── docker-compose.yml
