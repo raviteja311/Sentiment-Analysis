@@ -198,7 +198,7 @@ curl -X POST localhost:8000/predict \
 ```json
 {
   "model": "roberta",
-  "version": "735b42b170ac",
+  "version": "57e61771d746",
   "label": "positive",
   "confidence": 0.9527,
   "probabilities": {"negative": 0.0189, "neutral": 0.0284, "positive": 0.9527}
@@ -206,8 +206,8 @@ curl -X POST localhost:8000/predict \
 ```
 
 `version` is a digest of the artifact that produced the prediction - the
-weights, the tokenizer and the calibration file - so a logged prediction stays
-traceable after a retrain or a re-fetch.
+weights, the tokenizer, the calibration file and the preprocessing spec - so a
+logged prediction stays traceable after a retrain or a re-fetch.
 
 `GET /models` reports the version **actually being served**. A predictor is
 cached once loaded, so replacing weights on disk does not change what answers
