@@ -221,17 +221,24 @@ needs_lr = pytest.mark.skipif(not _lr_available(), reason="lr artifacts unavaila
 
 
 @pytest.fixture
-def budget_of(monkeypatch):
-    """Swap a budget of the given size into the real app for one test."""
+def budget_of():
+    """Swap a budget of the given size into the real app for one test.
+
+    Saved and restored by hand rather than with monkeypatch.setattr: Starlette's
+    State keeps attributes in an internal dict, not the instance __dict__, and
+    from pytest 9.2 monkeypatch restores through __dict__, so its undo deleted
+    text_budget and every later API request failed with AttributeError.
+    """
     from api.main import app
 
+    original = app.state.text_budget
+
     def install(limit: str | None) -> TestClient:
-        monkeypatch.setattr(
-            app.state, "text_budget", rate_limit.TextBudget(limit, "memory://")
-        )
+        app.state.text_budget = rate_limit.TextBudget(limit, "memory://")
         return TestClient(app)
 
-    return install
+    yield install
+    app.state.text_budget = original
 
 
 def batch(client, size: int):

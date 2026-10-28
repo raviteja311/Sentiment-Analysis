@@ -178,11 +178,11 @@ preprocessing that lowercases and turns emoji into words, made the transformer
 slightly worse. The honest reading of the table is that fine-tuning has not
 added anything, and the decision was to leave the served transformer as it is
 rather than spend a GPU run on it: the base checkpoint is the stronger model
-by 1.3 points of accuracy on test, and anyone who wants that margin can serve
-the base checkpoint directly. Should a retrain be attempted, the code is
-ready for it: `make train-roberta` now trains with `cardiff-v1`, the
-preprocessing the base checkpoint expects, and records the spec beside the
-weights.
+by about 1.4 points of accuracy on test (0.7246 against 0.7109), and anyone
+who wants that margin can serve the base checkpoint directly. Should a retrain
+be attempted, the code is ready for it: `make train-roberta` now trains with
+`cardiff-v1`, the preprocessing the base checkpoint expects, and records the
+spec beside the weights.
 
 **Validation favours the base checkpoints.** The TweetEval authors fine-tuned
 their RoBERTa models with early stopping on the validation split and kept the

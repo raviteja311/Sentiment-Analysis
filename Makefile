@@ -85,13 +85,13 @@ publish-weights:  ## Upload the large weights (requires `huggingface-cli login`)
 
 # --- training and evaluation ----------------------------------------------
 
-train-lr:  ## Train the TF-IDF + LogisticRegression baseline (minutes, CPU)
+train-lr:  ## Train the TF-IDF + LogisticRegression baseline (~30 s, CPU)
 	$(PYTHON) -m src.training.train_lr
 
-train-lstm:  ## Train the Bi-LSTM (tens of minutes, CPU)
+train-lstm:  ## Train the Bi-LSTM (~8 min, CPU)
 	$(PYTHON) -m src.training.train_lstm
 
-train-gru:  ## Train the Bi-GRU (tens of minutes, CPU)
+train-gru:  ## Train the Bi-GRU (~8 min, CPU)
 	$(PYTHON) -m src.training.train_gru
 
 train-roberta:  ## Fine-tune the Twitter-RoBERTa checkpoint (GPU strongly advised)
